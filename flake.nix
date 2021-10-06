@@ -12,6 +12,7 @@
         commonDependencies = with pkgs; [
           cmake
           freetype
+          openssl
           # TODO: On NixOS, this will cause trouble to build
           # (workaround: sudo ln -s `which file` /usr/bin/file)
           file
