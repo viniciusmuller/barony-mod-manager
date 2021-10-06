@@ -1,16 +1,24 @@
-use std::{
-    fmt::{self, Display},
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 
-use barony_mod_manager::{data::BaronyMod, styling::BaronyModManagerUiStyles};
-use iced::{
-    button, executor, pick_list, text_input, Align, Application, Button, Checkbox, Clipboard,
-    Color, Column, Command, Container, Element, Length, PickList, Row, Settings, Text, TextInput,
+use barony_mod_manager::{
+    data::BaronyMod,
+    filesystem,
+    steam_api::steam_request,
+    styling::BaronyModManagerUiStyles,
+    widgets::{Message, Sorter},
 };
+use iced::{
+    button, executor, futures::io::Window, pick_list, text_input, window, Align, Application,
+    Button, Checkbox, Clipboard, Color, Column, Command, Container, Element, Length, PickList, Row,
+    Settings, Subscription, Text, TextInput,
+};
+use iced_native::Event;
 
 fn main() -> iced::Result {
-    BaronyModManager::run(Settings::default())
+    BaronyModManager::run(Settings {
+        exit_on_close_request: false,
+        ..Settings::default()
+    })
 }
 
 /// App state
@@ -34,68 +42,16 @@ struct BaronyModManager {
 
     // Show only installed checkbox
     show_only_installed: bool,
-}
 
-#[derive(Clone, Debug)]
-enum Message {
-    ApiKeyInputChanged(String),
-    ModSearchInputChanged(String),
-    ToggleHiddenApiKeyInput(bool),
-    ToggleShowOnlyInstalled(bool),
-    SorterSelected(Sorter),
-    ButtonWasPressed,
-}
+    // Barony dir input
+    barony_dir_str: String,
+    barony_dir_input: text_input::State,
 
-/// Possible fields that can be used to sort the mods
-#[derive(Clone, Debug)]
-enum Sorter {
-    VoteScore,
-    Views,
-    Subscribed,
-    Updated,
-    Created,
-    None,
-}
+    // Button
+    button_state: button::State,
 
-impl Sorter {
-    const ALL: [Sorter; 6] = [
-        Sorter::VoteScore,
-        Sorter::Views,
-        Sorter::Subscribed,
-        Sorter::Updated,
-        Sorter::Created,
-        Sorter::None,
-    ];
-}
-
-impl Display for Sorter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Sorter::VoteScore => "Vote score",
-                Sorter::Views => "Views",
-                Sorter::Subscribed => "Subscribed",
-                Sorter::Updated => "Date updated",
-                Sorter::Created => "Date created",
-                Sorter::None => "Nothing",
-            }
-        )
-    }
-}
-
-impl PartialEq for Sorter {
-    fn eq(&self, other: &Self) -> bool {
-        false
-    }
-}
-impl Eq for Sorter {}
-
-impl Default for Sorter {
-    fn default() -> Sorter {
-        Sorter::None
-    }
+    // Misc
+    should_exit: bool,
 }
 
 // TODO: Create a workshop items `Tag` picklist
@@ -105,14 +61,28 @@ impl Application for BaronyModManager {
     type Message = Message;
     type Flags = ();
 
+    fn title(&self) -> String {
+        String::from("Barony Mod Manager")
+    }
+
+    fn should_exit(&self) -> bool {
+        self.should_exit
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        iced_native::subscription::events().map(Message::EventOccurred)
+    }
+
     fn new(_flags: Self::Flags) -> (BaronyModManager, Command<Message>) {
+        let persisted_settings = filesystem::load_persisted_settings();
+
         let initial_state = BaronyModManager {
             barony_dir: None,
             mods: None,
             // Steam API key
             api_key_input: text_input::State::default(),
             api_key_input_hidden: true,
-            steam_api_key: "".to_owned(),
+            steam_api_key: persisted_settings.steam_api_key.unwrap_or_default(),
             // Mod querying
             mod_search_input: text_input::State::default(),
             query: "".to_string(),
@@ -120,13 +90,16 @@ impl Application for BaronyModManager {
             sorter_picklist: pick_list::State::default(),
             selected_sorter: Some(Sorter::default()),
             show_only_installed: false,
+
+            barony_dir_str: persisted_settings.barony_directory_path.unwrap_or_default(),
+            barony_dir_input: text_input::State::default(),
+
+            button_state: button::State::default(),
+
+            should_exit: false,
         };
 
         (initial_state, Command::none())
-    }
-
-    fn title(&self) -> String {
-        String::from("Barony Mod Manager")
     }
 
     fn update(
@@ -134,7 +107,6 @@ impl Application for BaronyModManager {
         message: Self::Message,
         _clipboard: &mut Clipboard,
     ) -> Command<Self::Message> {
-        // This application has no interactions
         match message {
             Message::ApiKeyInputChanged(new_value) => {
                 self.steam_api_key = new_value;
@@ -152,29 +124,46 @@ impl Application for BaronyModManager {
                 self.show_only_installed = new_value;
                 Command::none()
             }
-            Message::ButtonWasPressed => Command::none(),
+            Message::ButtonWasPressed => {
+                Command::perform(steam_request("flsadf".to_string()), |a| {
+                    if a == "success".to_string() {
+                        Message::SorterSelected(Sorter::VoteScore)
+                    } else {
+                        Message::SorterSelected(Sorter::Subscribed)
+                    }
+                })
+            }
             Message::SorterSelected(new_sorter) => {
                 self.selected_sorter = Some(new_sorter);
+                Command::none()
+            }
+            Message::BaronyDirectoryPathChanged(new_value) => {
+                self.barony_dir_str = new_value;
+                Command::none()
+            }
+            Message::EventOccurred(event) => {
+                match event {
+                    Event::Window(iced_native::window::Event::CloseRequested) => {
+                        // Cleanup
+                        filesystem::persist_settings(filesystem::SettingsPersistance {
+                            barony_directory_path: Some(self.barony_dir_str.clone()),
+                            steam_api_key: Some(self.steam_api_key.clone()),
+                        });
+                        self.should_exit = true;
+                    }
+                    _ => (),
+                }
                 Command::none()
             }
         }
     }
 
     fn view(&mut self) -> Element<Self::Message> {
+        // ------------------ Header -----------------------
         let app_name = Text::new("Barony Mod Manager")
             .size(30)
             .width(Length::FillPortion(3))
             .color(iced::Color::WHITE);
-
-        let mut api_key_input = TextInput::new(
-            &mut self.api_key_input,
-            "Steam API Key",
-            &self.steam_api_key,
-            Message::ApiKeyInputChanged,
-        )
-        .padding(5)
-        .style(BaronyModManagerUiStyles)
-        .size(20);
 
         let mod_search_input = TextInput::new(
             &mut self.mod_search_input,
@@ -187,12 +176,9 @@ impl Application for BaronyModManager {
         .style(BaronyModManagerUiStyles)
         .size(20);
 
-        api_key_input = if self.api_key_input_hidden {
-            api_key_input.password()
-        } else {
-            api_key_input
-        };
+        let header = Row::new().push(app_name).push(mod_search_input);
 
+        // ------------------ Bottom inputs -----------------------
         let toggle_api_key_input_hidden = Checkbox::new(
             self.api_key_input_hidden,
             "Hide API Key Input",
@@ -202,59 +188,89 @@ impl Application for BaronyModManager {
         .style(BaronyModManagerUiStyles)
         .text_size(20);
 
-        let top = Row::new().push(app_name).push(mod_search_input);
+        let mut api_key_input = TextInput::new(
+            &mut self.api_key_input,
+            "Steam API Key",
+            &self.steam_api_key,
+            Message::ApiKeyInputChanged,
+        )
+        .padding(5)
+        .style(BaronyModManagerUiStyles)
+        .size(20);
+
+        api_key_input = if self.api_key_input_hidden {
+            api_key_input.password()
+        } else {
+            api_key_input
+        };
 
         let api_key_section = Column::new()
             .spacing(15)
-            .max_width(500)
+            .width(Length::FillPortion(2))
             .push(toggle_api_key_input_hidden)
             .push(api_key_input);
 
-        // let button = Button::new(&mut self.test_button, Text::new("Button"))
-        //     .on_press(Message::ButtonWasPressed)
-        //     .style(BaronyModManagerUiStyles);
+        let barony_path_input = TextInput::new(
+            &mut self.barony_dir_input,
+            "Barony directory",
+            &self.barony_dir_str,
+            Message::BaronyDirectoryPathChanged,
+        )
+        .padding(5)
+        .style(BaronyModManagerUiStyles)
+        .width(Length::FillPortion(2))
+        .size(20);
 
-        // Things such as `show only installed flag`, `sort by`
-        //
+        let bottom_inputs = Row::new()
+            .push(api_key_section)
+            .push(barony_path_input)
+            .align_items(Align::End)
+            .spacing(100);
+
+        // ---------------- Filtering/Sorting ------------------
         let show_only_installed = Checkbox::new(
             self.show_only_installed,
-            "Show only installed mods",
+            "List only installed mods",
             Message::ToggleShowOnlyInstalled,
         )
         .size(20)
-        // .width(Length::FillPortion(1))
         .style(BaronyModManagerUiStyles)
         .text_size(20);
 
         let pick_list_label = Text::new("Sort by").color(Color::WHITE);
-        let pick_list = pick_list::PickList::new(
+        let pick_list = PickList::new(
             &mut self.sorter_picklist,
             &Sorter::ALL[..],
             self.selected_sorter.clone(),
             Message::SorterSelected,
         )
         .text_size(20)
-        // .width(Length::FillPortion(2))
         .style(BaronyModManagerUiStyles);
 
-        let pick_list_full = Column::new()
-            .spacing(5)
+        let pick_list_full = Row::new()
+            .spacing(10)
+            .align_items(Align::Center)
             .push(pick_list_label)
             .push(pick_list);
 
-        let above_middle = Row::new()
+        let search_options = Row::new()
             .push(pick_list_full)
             .push(show_only_installed)
-            .spacing(20)
-            .align_items(Align::Center);
-        let middle_section = Column::new().height(Length::Fill);
+            .align_items(Align::Center)
+            .spacing(20);
 
+        // ---------------- Mods container ------------------
+        let button = Button::new(&mut self.button_state, Text::new("yeah"))
+            .on_press(Message::ButtonWasPressed);
+        let mods = Column::new().height(Length::Fill).push(button);
+
+        // -------------- Everything together --------------
         let all_content = Column::new()
             .spacing(20)
-            .push(top)
-            .push(above_middle)
-            .push(middle_section)
-            .push(api_key_section);
+            .push(header)
+            .push(search_options)
+            .push(mods)
+            .push(bottom_inputs);
 
         Container::new(all_content)
             .width(Length::Fill)
