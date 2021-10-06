@@ -1,5 +1,7 @@
 use std::fmt::{self, Display};
 
+use crate::data::{self, BaronyMod, SteamApiResponse, SteamWorkshopMod, SteamWorkshopTag};
+
 #[derive(Clone, Debug)]
 pub enum Message {
     ApiKeyInputChanged(String),
@@ -7,10 +9,49 @@ pub enum Message {
     BaronyDirectoryPathChanged(String),
     ToggleHiddenApiKeyInput(bool),
     ToggleShowOnlyInstalled(bool),
+    TotalModsNumber(u64),
+    TagSelected(PickableTag),
+    ModFetched(BaronyMod),
+    ModImageFetched(String, Vec<u8>),
     EventOccurred(iced_native::Event),
     SorterSelected(Sorter),
+    ErrorHappened(String),
+    Scrolled(u64),
     ButtonWasPressed,
+    NoOp,
 }
+
+#[derive(Debug, Clone)]
+pub enum PickableTag {
+    Some(SteamWorkshopTag),
+    None,
+}
+
+impl Display for PickableTag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PickableTag::Some(tag) => tag.display_name.clone(),
+                PickableTag::None => "None".to_string(),
+            }
+        )
+    }
+}
+
+impl Default for PickableTag {
+    fn default() -> PickableTag {
+        PickableTag::None
+    }
+}
+
+impl PartialEq for PickableTag {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+impl Eq for PickableTag {}
 
 /// Possible fields that can be used to sort the mods
 #[derive(Clone, Debug)]

@@ -1,18 +1,19 @@
-use std::path::PathBuf;
+use std::{os::unix::prelude::CommandExt, path::PathBuf};
 
 use barony_mod_manager::{
-    data::BaronyMod,
+    data::{BaronyMod, SteamWorkshopTag},
     filesystem,
-    steam_api::steam_request,
+    steam_api::{download_image, get_total_mods, get_workshop_item},
     styling::BaronyModManagerUiStyles,
-    widgets::{Message, Sorter},
+    widgets::{Message, PickableTag, Sorter},
 };
 use iced::{
-    button, executor, futures::io::Window, pick_list, text_input, window, Align, Application,
-    Button, Checkbox, Clipboard, Color, Column, Command, Container, Element, Length, PickList, Row,
+    button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
+    Checkbox, Clipboard, Color, Command, Container, Element, Image, Length, PickList, Row,
     Settings, Subscription, Text, TextInput,
 };
-use iced_native::Event;
+use iced_native::{Column, Event, Scrollable};
+use reqwest::Client;
 
 fn main() -> iced::Result {
     BaronyModManager::run(Settings {
@@ -26,7 +27,7 @@ struct BaronyModManager {
     // Core data
     barony_dir: Option<PathBuf>,
     mods: Option<Vec<BaronyMod>>,
-
+    http_client: Client,
     // Api key input
     steam_api_key: String,
     api_key_input: text_input::State,
@@ -40,6 +41,9 @@ struct BaronyModManager {
     sorter_picklist: pick_list::State<Sorter>,
     selected_sorter: Option<Sorter>,
 
+    tag_picklist: pick_list::State<PickableTag>,
+    selected_tag: Option<PickableTag>,
+
     // Show only installed checkbox
     show_only_installed: bool,
 
@@ -50,8 +54,11 @@ struct BaronyModManager {
     // Button
     button_state: button::State,
 
+    mods_scrollable: scrollable::State,
+
     // Misc
     should_exit: bool,
+    error_message: Option<String>,
 }
 
 // TODO: Create a workshop items `Tag` picklist
@@ -79,6 +86,7 @@ impl Application for BaronyModManager {
         let initial_state = BaronyModManager {
             barony_dir: None,
             mods: None,
+            http_client: Client::new(),
             // Steam API key
             api_key_input: text_input::State::default(),
             api_key_input_hidden: true,
@@ -91,12 +99,18 @@ impl Application for BaronyModManager {
             selected_sorter: Some(Sorter::default()),
             show_only_installed: false,
 
+            tag_picklist: pick_list::State::default(),
+            selected_tag: Some(PickableTag::default()),
+
             barony_dir_str: persisted_settings.barony_directory_path.unwrap_or_default(),
             barony_dir_input: text_input::State::default(),
 
             button_state: button::State::default(),
 
+            mods_scrollable: scrollable::State::default(),
+
             should_exit: false,
+            error_message: None,
         };
 
         (initial_state, Command::none())
@@ -124,17 +138,29 @@ impl Application for BaronyModManager {
                 self.show_only_installed = new_value;
                 Command::none()
             }
-            Message::ButtonWasPressed => {
-                Command::perform(steam_request("flsadf".to_string()), |a| {
-                    if a == "success".to_string() {
-                        Message::SorterSelected(Sorter::VoteScore)
-                    } else {
-                        Message::SorterSelected(Sorter::Subscribed)
-                    }
-                })
-            }
+            Message::ButtonWasPressed => Command::perform(
+                get_total_mods(self.http_client.clone(), self.steam_api_key.clone()),
+                |result| match result {
+                    Ok(number) => Message::TotalModsNumber(number),
+                    Err(message) => Message::ErrorHappened(message),
+                },
+            ),
+            Message::TotalModsNumber(total) => iced::Command::batch((1..=total).map(|n| {
+                Command::perform(
+                    get_workshop_item(self.http_client.clone(), self.steam_api_key.clone(), n),
+                    // Message::Testing,
+                    |result| match result {
+                        Ok(mod_response) => Message::ModFetched(mod_response),
+                        Err(message) => Message::ErrorHappened(message),
+                    },
+                )
+            })),
             Message::SorterSelected(new_sorter) => {
                 self.selected_sorter = Some(new_sorter);
+                Command::none()
+            }
+            Message::TagSelected(tag) => {
+                self.selected_tag = Some(tag);
                 Command::none()
             }
             Message::BaronyDirectoryPathChanged(new_value) => {
@@ -155,6 +181,40 @@ impl Application for BaronyModManager {
                 }
                 Command::none()
             }
+            Message::ModFetched(barony_mod) => {
+                if let Some(mods) = &mut self.mods {
+                    mods.push(barony_mod.clone()) // self.mods.unwrap().push(barony_mod)
+                } else {
+                    self.mods = Some(vec![barony_mod.clone()])
+                }
+
+                Command::perform(
+                    download_image(
+                        self.http_client.clone(),
+                        barony_mod.workshop.preview_url.clone(),
+                    ),
+                    move |result| match result {
+                        Ok(bytes) => {
+                            Message::ModImageFetched(barony_mod.workshop.id.clone(), bytes)
+                        }
+                        Err(_msg) => Message::NoOp,
+                    },
+                )
+            }
+            Message::ModImageFetched(id, image_binary) => {
+                dbg!(id);
+                // if let Some(mods) = self.mods {
+                //     mods.push(barony_mod) // self.mods.unwrap().push(barony_mod)
+                // }
+                Command::none()
+            }
+            // Message::ModReady(barony_mod) => Command::none(),
+            Message::ErrorHappened(msg) => {
+                self.error_message = Some(format!("An error occurred: {}", msg));
+                Command::none()
+            }
+            Message::NoOp => Command::none(),
+            Message::Scrolled(n) => Command::none(),
         }
     }
 
@@ -181,7 +241,7 @@ impl Application for BaronyModManager {
         // ------------------ Bottom inputs -----------------------
         let toggle_api_key_input_hidden = Checkbox::new(
             self.api_key_input_hidden,
-            "Hide API Key Input",
+            "Hide Steam API key",
             Message::ToggleHiddenApiKeyInput,
         )
         .size(20)
@@ -247,6 +307,32 @@ impl Application for BaronyModManager {
         .text_size(20)
         .style(BaronyModManagerUiStyles);
 
+        let pick_list_tags = PickList::new(
+            &mut self.tag_picklist,
+            vec![
+                PickableTag::Some(SteamWorkshopTag {
+                    tag: "fooo".to_string(),
+                    display_name: "fooo".to_string(),
+                }),
+                PickableTag::Some(SteamWorkshopTag {
+                    tag: "barr".to_string(),
+                    display_name: "barr".to_string(),
+                }),
+                PickableTag::None,
+            ],
+            self.selected_tag.clone(),
+            Message::TagSelected,
+        )
+        .text_size(20)
+        .style(BaronyModManagerUiStyles);
+
+        let tag_pick_list_label = Text::new("Tag").color(Color::WHITE);
+        let tag_pick_list = Row::new()
+            .spacing(10)
+            .align_items(Align::Center)
+            .push(tag_pick_list_label)
+            .push(pick_list_tags);
+
         let pick_list_full = Row::new()
             .spacing(10)
             .align_items(Align::Center)
@@ -254,22 +340,58 @@ impl Application for BaronyModManager {
             .push(pick_list);
 
         let search_options = Row::new()
+            .spacing(20)
+            .align_items(Align::Center)
             .push(pick_list_full)
             .push(show_only_installed)
-            .align_items(Align::Center)
-            .spacing(20);
+            .push(tag_pick_list);
 
         // ---------------- Mods container ------------------
         let button = Button::new(&mut self.button_state, Text::new("yeah"))
+            .style(BaronyModManagerUiStyles)
             .on_press(Message::ButtonWasPressed);
-        let mods = Column::new().height(Length::Fill).push(button);
+
+        let main_section = if self.steam_api_key.is_empty() {
+            let text =
+                Text::new("Add your steam API key to the bottom left input and press enter.")
+                    .color(Color::WHITE)
+                    .size(35);
+            Column::new().height(Length::Fill).push(text)
+        } else if let Some(error) = &self.error_message {
+            let text = Text::new(error).size(35).color(Color::WHITE);
+            Column::new().height(Length::Fill).push(text)
+        } else {
+            let mut mods_scrollable = Scrollable::new(&mut self.mods_scrollable)
+                .width(Length::Fill)
+                .height(Length::Fill);
+            // .on_scroll(Message::Scrolled);
+
+            mods_scrollable = if let Some(mods) = self.mods.as_ref() {
+                mods.into_iter().fold(mods_scrollable, |scroll, mod_| {
+                    if let Some(image) = mod_.image_binary.clone() {
+                        let handle = image::Handle::from_memory(image);
+                        let image = Image::new(handle);
+                        scroll.push(image)
+                    } else {
+                        scroll
+                    }
+                })
+            } else {
+                mods_scrollable
+            };
+
+            Column::new()
+                .height(Length::Fill)
+                .push(button)
+                .push(mods_scrollable)
+        };
 
         // -------------- Everything together --------------
         let all_content = Column::new()
             .spacing(20)
             .push(header)
             .push(search_options)
-            .push(mods)
+            .push(main_section)
             .push(bottom_inputs);
 
         Container::new(all_content)

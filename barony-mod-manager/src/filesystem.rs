@@ -45,3 +45,11 @@ pub fn load_persisted_settings() -> SettingsPersistance {
 
     settings
 }
+
+pub fn is_mod_downloaded(mod_name: String) -> bool {
+    false
+}
+
+pub fn is_mod_active(mod_name: String) -> bool {
+    false
+}
