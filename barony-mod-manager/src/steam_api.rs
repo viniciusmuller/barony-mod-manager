@@ -2,16 +2,10 @@
 
 // use std::future::Future;
 
-use std::{io::Bytes, time::Duration};
+use std::time::Duration;
 
 use iced::image::Handle;
-use iced_native::executor::Tokio;
-use image::{
-    imageops::{resize, FilterType::Triangle},
-    io::Reader,
-    DynamicImage, ImageBuffer, ImageError, Rgba,
-};
-use rand::Rng;
+use image::io::Reader;
 use reqwest::{Client, Error};
 
 use crate::{
@@ -19,11 +13,8 @@ use crate::{
         BaronyMod, SteamApiResponse, SteamWorkshopMod, SteamWorkshopModResponse, SteamWorkshopTotal,
     },
     filesystem::{is_mod_active, is_mod_downloaded},
-    widgets::Message,
+    images::{resize, to_handle},
 };
-// use std::collections::HashMap;
-
-// static BARONY_APP_ID: String = "371970".;
 
 macro_rules! map(
     { $($key:expr => $value:expr),+ } => {
@@ -38,6 +29,7 @@ macro_rules! map(
 );
 
 static BARONY_APP_ID: u64 = 371970;
+static APP_IMAGES_SIZE: u32 = 180; // Pixels
 
 pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, String> {
     let params = map!(
@@ -98,7 +90,7 @@ pub async fn get_workshop_item(
         Ok(response) => response.text().await.unwrap(),
         Err(_error) => return Err("Failed to get mod data.".to_string()),
     };
-    // let content =
+
     let mut mod_: SteamApiResponse<SteamWorkshopModResponse> =
         serde_json::from_str(content.as_str()).unwrap();
 
@@ -108,14 +100,15 @@ pub async fn get_workshop_item(
         .unwrap()
         .decode()
         .unwrap();
-    let resized = resize(&image, 175, 175, Triangle);
-    let default_handle = Handle::from_pixels(resized.width(), resized.height(), resized.to_vec());
+
+    let resized = resize(&image, APP_IMAGES_SIZE, APP_IMAGES_SIZE);
+    let default_handle = to_handle(&resized);
 
     let image_handle = if steam_mod.preview_url.is_empty() {
         default_handle
     } else {
         match download_image(client, steam_mod.preview_url.clone()).await {
-            Ok(image) => Handle::from_pixels(image.width(), image.height(), image.to_vec()),
+            Ok(handle) => handle,
             Err(_err) => default_handle,
         }
     };
@@ -130,12 +123,9 @@ pub async fn get_workshop_item(
     Ok(barony_mod)
 }
 
-pub async fn download_image(
-    client: Client,
-    url: String,
-) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, Error> {
+pub async fn download_image(client: Client, url: String) -> Result<Handle, Error> {
     let image_bytes = client.get(url).send().await?.bytes().await?;
     let image = image::load_from_memory(&image_bytes).unwrap();
-    let resized = resize(&image, 175, 175, Triangle);
-    Ok(resized)
+    let resized = resize(&image, APP_IMAGES_SIZE, APP_IMAGES_SIZE);
+    Ok(to_handle(&resized))
 }

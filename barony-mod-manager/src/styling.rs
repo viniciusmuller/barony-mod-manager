@@ -140,3 +140,17 @@ impl pick_list::StyleSheet for GeneralUiStyles {
         }
     }
 }
+
+pub struct ModCardUiStyles;
+
+impl container::StyleSheet for ModCardUiStyles {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Color::from_rgb8(22, 22, 22).into(),
+            border_width: 3.0,
+            border_color: Color::from_rgb8(80, 80, 80).into(),
+            border_radius: 4.0,
+            ..container::Style::default()
+        }
+    }
+}

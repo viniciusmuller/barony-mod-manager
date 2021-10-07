@@ -4,14 +4,14 @@ use barony_mod_manager::{
     data::BaronyMod,
     filesystem,
     steam_api::{get_total_mods, get_workshop_item},
-    styling::GeneralUiStyles,
+    styling::{GeneralUiStyles, ModCardUiStyles},
     widgets::{Filter, Message, PickableTag, Sorter},
 };
-use chrono::Datelike;
+use chrono::{serde::ts_nanoseconds::deserialize, Datelike};
 use iced::{
-    button, executor, pick_list, scrollable, text_input, Align, Application, Button,
-    Checkbox, Clipboard, Color, Command, Container, Element, Image, Length, PickList, Row,
-    Settings, Subscription, Text, TextInput,
+    button, executor, pick_list, scrollable, text_input, Align, Application, Button, Checkbox,
+    Clipboard, Color, Command, Container, Element, Image, Length, PickList, Row, Settings,
+    Subscription, Text, TextInput,
 };
 use iced_native::{Column, Event, Scrollable};
 use reqwest::Client;
@@ -83,7 +83,13 @@ impl Application for BaronyModManager {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        iced_native::subscription::events().map(Message::EventOccurred)
+        iced_native::subscription::events_with(|event, _other| match event {
+            // Listen only for window close requests, don't triggering unnecessary renders
+            Event::Window(iced_native::window::Event::CloseRequested) => {
+                Some(Message::CloseRequested)
+            }
+            _ => None,
+        })
     }
 
     fn new(_flags: Self::Flags) -> (BaronyModManager, Command<Message>) {
@@ -162,7 +168,6 @@ impl Application for BaronyModManager {
             Message::TotalModsNumber(total) => iced::Command::batch((1..=total).map(|n| {
                 Command::perform(
                     get_workshop_item(self.http_client.clone(), self.steam_api_key.clone(), n),
-                    // Message::Testing,
                     |result| match result {
                         Ok(mod_response) => Message::ModFetched(mod_response),
                         Err(message) => Message::ErrorHappened(message),
@@ -185,18 +190,13 @@ impl Application for BaronyModManager {
                 self.barony_dir_str = new_value;
                 Command::none()
             }
-            Message::EventOccurred(event) => {
-                match event {
-                    Event::Window(iced_native::window::Event::CloseRequested) => {
-                        // Cleanup
-                        filesystem::persist_settings(filesystem::SettingsPersistance {
-                            barony_directory_path: Some(self.barony_dir_str.clone()),
-                            steam_api_key: Some(self.steam_api_key.clone()),
-                        });
-                        self.should_exit = true;
-                    }
-                    _ => (),
-                }
+            Message::CloseRequested => {
+                // Cleanup
+                filesystem::persist_settings(filesystem::SettingsPersistance {
+                    barony_directory_path: Some(self.barony_dir_str.clone()),
+                    steam_api_key: Some(self.steam_api_key.clone()),
+                });
+                self.should_exit = true;
                 Command::none()
             }
             Message::ModFetched(barony_mod) => {
@@ -368,30 +368,50 @@ impl Application for BaronyModManager {
             .push(pick_list_label)
             .push(pick_list);
 
-        let search_options = Row::new()
+        let refresh_button = Button::new(&mut self.search_button_state, Text::new("Refresh"))
+            .style(GeneralUiStyles)
+            .width(Length::Shrink)
+            .on_press(Message::ButtonWasPressed);
+
+        let refresh_section = Row::new().width(Length::Shrink).push(refresh_button);
+
+        let search_options_ = Row::new()
             .spacing(20)
             .align_items(Align::Center)
+            .width(Length::Fill)
             .push(pick_list_full)
             .push(filter_pick_list_)
             .push(tag_pick_list);
 
-        // ---------------- Mods container ------------------
-        let button = Button::new(&mut self.search_button_state, Text::new("Search"))
-            .style(GeneralUiStyles)
-            .on_press(Message::ButtonWasPressed);
+        let search_options = Row::new().push(search_options_).push(refresh_section);
 
+        // ---------------- Mods container ------------------
         let main_section = if self.steam_api_key.is_empty() {
-            let text =
-                Text::new("Add your steam API key to the bottom left input and press enter.")
-                    .color(Color::WHITE)
-                    .size(35);
-            Column::new().height(Length::Fill).push(text)
+            let text = Text::new(
+                "Add your steam API key to the bottom left input and click the \"Refresh\" button.",
+            )
+            .color(Color::WHITE)
+            // .vertical_alignment(iced::VerticalAlignment::Center)
+            // .horizontal_alignment(iced::HorizontalAlignment::Center)
+            .size(35);
+
+            Container::new(text)
+                .align_x(Align::Center)
+                .align_y(Align::Center)
+                .width(Length::Fill)
+                .height(Length::Fill)
         } else if let Some(error) = &self.error_message {
             let text = Text::new(error).size(35).color(Color::WHITE);
-            Column::new().height(Length::Fill).push(text)
+            // Column::new().height(Length::Fill).push(text)
+            Container::new(text)
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .align_x(Align::Center)
+                .align_y(Align::Center)
         } else {
             let mut mods_scrollable = Scrollable::new(&mut self.mods_scrollable)
-                .spacing(20)
+                .padding(15)
+                .spacing(15)
                 .width(Length::Fill)
                 .height(Length::Fill);
 
@@ -477,8 +497,21 @@ impl Application for BaronyModManager {
                         .size(25)
                         .color(Color::WHITE);
 
-                    let mod_description =
-                        Text::new(mod_.workshop.description.clone()).color(Color::WHITE);
+                    let description = mod_
+                        .workshop
+                        .description
+                        .chars()
+                        .into_iter()
+                        .take(2000)
+                        .collect::<String>();
+
+                    let description = if description.len() >= 2000 {
+                        format!("{}...", description)
+                    } else {
+                        description
+                    };
+
+                    let mod_description = Text::new(description).color(Color::WHITE);
 
                     let mod_info = Column::new()
                         .spacing(10)
@@ -495,19 +528,19 @@ impl Application for BaronyModManager {
                     let mod_card = Row::new().spacing(20).push(image_col).push(mod_info);
                     // .push(misc_mod_info);
 
-                    scroll.push(mod_card)
-                    // } else {
-                    //     scroll
-                    // }
+                    let container = Container::new(mod_card)
+                        .padding(10)
+                        .width(Length::Fill)
+                        .style(ModCardUiStyles);
+
+                    scroll.push(container)
                 })
             } else {
                 mods_scrollable
             };
 
-            Column::new()
-                .height(Length::Fill)
-                .push(button)
-                .push(mods_scrollable)
+            Container::new(mods_scrollable).height(Length::Fill)
+            // .push(mods_scrollable)
         };
 
         // -------------- Everything together --------------

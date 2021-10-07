@@ -206,7 +206,6 @@ dependencies = [
  "iced",
  "iced_native",
  "image",
- "rand",
  "reqwest",
  "serde",
  "serde_json",
