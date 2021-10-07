@@ -1,4 +1,9 @@
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    hash::{Hash, Hasher},
+};
+
+use image::{DynamicImage, ImageBuffer, Rgba};
 
 use crate::data::{self, BaronyMod, SteamApiResponse, SteamWorkshopMod, SteamWorkshopTag};
 
@@ -11,17 +16,17 @@ pub enum Message {
     ToggleShowOnlyInstalled(bool),
     TotalModsNumber(u64),
     TagSelected(PickableTag),
+    FilterSelected(Filter),
     ModFetched(BaronyMod),
-    ModImageFetched(String, Vec<u8>),
+    ModImageFetched(String, ImageBuffer<Rgba<u8>, Vec<u8>>),
     EventOccurred(iced_native::Event),
     SorterSelected(Sorter),
     ErrorHappened(String),
-    Scrolled(u64),
     ButtonWasPressed,
     NoOp,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum PickableTag {
     Some(SteamWorkshopTag),
     None,
@@ -39,6 +44,15 @@ impl Display for PickableTag {
         )
     }
 }
+
+// impl Hash for PickableTag {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         match self {
+//             Some(tag) => self.tag.hash(state),
+//             _ => None
+//         }
+//     }
+// }
 
 impl Default for PickableTag {
     fn default() -> PickableTag {
@@ -102,5 +116,54 @@ impl Eq for Sorter {}
 impl Default for Sorter {
     fn default() -> Sorter {
         Sorter::None
+    }
+}
+
+/// Possible fields that can be used to sort the mods
+#[derive(Clone, Debug)]
+pub enum Filter {
+    Active,
+    Inactive,
+    Downloaded,
+    NonDownloaded,
+    None,
+}
+
+impl Filter {
+    pub const ALL: [Filter; 5] = [
+        Filter::Active,
+        Filter::Inactive,
+        Filter::Downloaded,
+        Filter::NonDownloaded,
+        Filter::None,
+    ];
+}
+
+impl Display for Filter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Filter::Active => "Active",
+                Filter::Inactive => "Inactive",
+                Filter::Downloaded => "Downloaded",
+                Filter::NonDownloaded => "Non Downloaded",
+                Filter::None => "None",
+            }
+        )
+    }
+}
+
+impl PartialEq for Filter {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
+impl Eq for Filter {}
+
+impl Default for Filter {
+    fn default() -> Filter {
+        Filter::None
     }
 }

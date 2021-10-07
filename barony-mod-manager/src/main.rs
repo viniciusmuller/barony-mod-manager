@@ -1,11 +1,15 @@
-use std::{os::unix::prelude::CommandExt, path::PathBuf};
+use std::{collections::HashSet, os::unix::prelude::CommandExt, path::PathBuf, vec};
 
+use ::image::imageops::{
+    resize,
+    FilterType::{Lanczos3, Triangle},
+};
 use barony_mod_manager::{
     data::{BaronyMod, SteamWorkshopTag},
     filesystem,
     steam_api::{download_image, get_total_mods, get_workshop_item},
     styling::BaronyModManagerUiStyles,
-    widgets::{Message, PickableTag, Sorter},
+    widgets::{Filter, Message, PickableTag, Sorter},
 };
 use iced::{
     button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
@@ -32,10 +36,10 @@ struct BaronyModManager {
     steam_api_key: String,
     api_key_input: text_input::State,
     api_key_input_hidden: bool,
-
     // Mod querying
     mod_search_input: text_input::State,
     query: String,
+    tags: HashSet<PickableTag>,
 
     // Sorters picklist
     sorter_picklist: pick_list::State<Sorter>,
@@ -53,6 +57,9 @@ struct BaronyModManager {
 
     // Button
     button_state: button::State,
+
+    filter_picklist: pick_list::State<Filter>,
+    selected_filter: Option<Filter>,
 
     mods_scrollable: scrollable::State,
 
@@ -87,6 +94,7 @@ impl Application for BaronyModManager {
             barony_dir: None,
             mods: None,
             http_client: Client::new(),
+            tags: HashSet::new(),
             // Steam API key
             api_key_input: text_input::State::default(),
             api_key_input_hidden: true,
@@ -108,6 +116,9 @@ impl Application for BaronyModManager {
             button_state: button::State::default(),
 
             mods_scrollable: scrollable::State::default(),
+
+            filter_picklist: pick_list::State::default(),
+            selected_filter: Some(Filter::default()),
 
             should_exit: false,
             error_message: None,
@@ -163,6 +174,10 @@ impl Application for BaronyModManager {
                 self.selected_tag = Some(tag);
                 Command::none()
             }
+            Message::FilterSelected(filter) => {
+                self.selected_filter = Some(filter);
+                Command::none()
+            }
             Message::BaronyDirectoryPathChanged(new_value) => {
                 self.barony_dir_str = new_value;
                 Command::none()
@@ -188,24 +203,31 @@ impl Application for BaronyModManager {
                     self.mods = Some(vec![barony_mod.clone()])
                 }
 
+                for tag in &barony_mod.workshop.tags {
+                    let pickable = PickableTag::Some(tag.clone());
+                    self.tags.insert(pickable);
+                }
+
                 Command::perform(
                     download_image(
                         self.http_client.clone(),
                         barony_mod.workshop.preview_url.clone(),
                     ),
                     move |result| match result {
-                        Ok(bytes) => {
-                            Message::ModImageFetched(barony_mod.workshop.id.clone(), bytes)
+                        Ok(image) => {
+                            Message::ModImageFetched(barony_mod.workshop.id.clone(), image)
                         }
                         Err(_msg) => Message::NoOp,
                     },
                 )
             }
-            Message::ModImageFetched(id, image_binary) => {
-                dbg!(id);
-                // if let Some(mods) = self.mods {
-                //     mods.push(barony_mod) // self.mods.unwrap().push(barony_mod)
-                // }
+            Message::ModImageFetched(id, image) => {
+                if let Some(mods) = &mut self.mods {
+                    let index = mods.into_iter().position(|m| m.workshop.id == id).unwrap();
+                    let barony_mod = mods.get_mut(index).unwrap();
+                    barony_mod.image = Some(image)
+                }
+
                 Command::none()
             }
             // Message::ModReady(barony_mod) => Command::none(),
@@ -214,7 +236,6 @@ impl Application for BaronyModManager {
                 Command::none()
             }
             Message::NoOp => Command::none(),
-            Message::Scrolled(n) => Command::none(),
         }
     }
 
@@ -288,16 +309,30 @@ impl Application for BaronyModManager {
             .spacing(100);
 
         // ---------------- Filtering/Sorting ------------------
-        let show_only_installed = Checkbox::new(
-            self.show_only_installed,
-            "List only installed mods",
-            Message::ToggleShowOnlyInstalled,
+        let filter_picklist_label = Text::new("Filter:").color(Color::WHITE);
+        let filter_pick_list = PickList::new(
+            &mut self.filter_picklist,
+            &Filter::ALL[..],
+            self.selected_filter.clone(),
+            Message::FilterSelected,
         )
-        .size(20)
-        .style(BaronyModManagerUiStyles)
-        .text_size(20);
+        .style(BaronyModManagerUiStyles);
 
-        let pick_list_label = Text::new("Sort by").color(Color::WHITE);
+        let filter_pick_list_ = Row::new()
+            .spacing(10)
+            .align_items(Align::Center)
+            .push(filter_picklist_label)
+            .push(filter_pick_list);
+        // let show_only_installed = Checkbox::new(
+        //     self.show_only_installed,
+        //     "List only installed mods",
+        //     Message::ToggleShowOnlyInstalled,
+        // )
+        // .size(20)
+        // .style(BaronyModManagerUiStyles)
+        // .text_size(20);
+
+        let pick_list_label = Text::new("Sort by:").color(Color::WHITE);
         let pick_list = PickList::new(
             &mut self.sorter_picklist,
             &Sorter::ALL[..],
@@ -309,24 +344,14 @@ impl Application for BaronyModManager {
 
         let pick_list_tags = PickList::new(
             &mut self.tag_picklist,
-            vec![
-                PickableTag::Some(SteamWorkshopTag {
-                    tag: "fooo".to_string(),
-                    display_name: "fooo".to_string(),
-                }),
-                PickableTag::Some(SteamWorkshopTag {
-                    tag: "barr".to_string(),
-                    display_name: "barr".to_string(),
-                }),
-                PickableTag::None,
-            ],
+            self.tags.clone().into_iter().collect::<Vec<_>>(),
             self.selected_tag.clone(),
             Message::TagSelected,
         )
         .text_size(20)
         .style(BaronyModManagerUiStyles);
 
-        let tag_pick_list_label = Text::new("Tag").color(Color::WHITE);
+        let tag_pick_list_label = Text::new("Tag:").color(Color::WHITE);
         let tag_pick_list = Row::new()
             .spacing(10)
             .align_items(Align::Center)
@@ -343,7 +368,8 @@ impl Application for BaronyModManager {
             .spacing(20)
             .align_items(Align::Center)
             .push(pick_list_full)
-            .push(show_only_installed)
+            .push(filter_pick_list_)
+            // .push(show_only_installed)
             .push(tag_pick_list);
 
         // ---------------- Mods container ------------------
@@ -362,14 +388,18 @@ impl Application for BaronyModManager {
             Column::new().height(Length::Fill).push(text)
         } else {
             let mut mods_scrollable = Scrollable::new(&mut self.mods_scrollable)
+                .spacing(20)
                 .width(Length::Fill)
                 .height(Length::Fill);
-            // .on_scroll(Message::Scrolled);
 
             mods_scrollable = if let Some(mods) = self.mods.as_ref() {
                 mods.into_iter().fold(mods_scrollable, |scroll, mod_| {
-                    if let Some(image) = mod_.image_binary.clone() {
-                        let handle = image::Handle::from_memory(image);
+                    if let Some(image) = mod_.image.clone() {
+                        let handle = image::Handle::from_pixels(
+                            image.width(),
+                            image.height(),
+                            image.to_vec(),
+                        );
                         let image = Image::new(handle);
                         scroll.push(image)
                     } else {

@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
+use image::{DynamicImage, ImageBuffer, Rgba};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
 use serde_with::TimestampSeconds;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
-    pub image_binary: Option<Vec<u8>>,
+    pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
     pub is_active: bool,
     pub is_downloaded: bool,
 }
@@ -50,7 +51,7 @@ pub struct SteamWorkshopMod {
     pub time_updated: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub struct SteamWorkshopTag {
     pub tag: String,
     pub display_name: String,

@@ -5,6 +5,10 @@
 use std::{io::Bytes, time::Duration};
 
 use iced_native::executor::Tokio;
+use image::{
+    imageops::{resize, FilterType::Triangle},
+    DynamicImage, ImageBuffer, ImageError, Rgba,
+};
 use rand::Rng;
 use reqwest::{Client, Error};
 
@@ -32,15 +36,6 @@ macro_rules! map(
 );
 
 static BARONY_APP_ID: u64 = 371970;
-
-// pub async fn get_mods_quantity(steam_key: String) -> u64 {}
-
-// pub async fn get_mods(client: Client, steam_key: String) -> Result<u64, String> {
-//     // let first_mod = request_workshop_page(&client, steam_key, 1).await?;
-//     let total = get_total_mods(client, steam_key).await?;
-//     Ok(total)
-//     // (1..=total).map(|n| async { request_workshop_page(client, steam_key, n) })
-// }
 
 pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, String> {
     let params = map!(
@@ -71,8 +66,6 @@ pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, St
         }
     }
 }
-
-pub async fn get_barony_mod() {}
 
 pub async fn get_workshop_item(
     client: Client,
@@ -113,12 +106,12 @@ pub async fn get_workshop_item(
         is_downloaded: is_mod_downloaded(steam_mod.title.clone()),
         is_active: is_mod_active(steam_mod.title.clone()),
         workshop: steam_mod.clone(),
-        image_binary: None,
+        image: None,
     };
 
-    barony_mod.image_binary = if !steam_mod.preview_url.is_empty() {
+    barony_mod.image = if !steam_mod.preview_url.is_empty() {
         match download_image(client, steam_mod.preview_url.clone()).await {
-            Ok(image_bytes) => Some(image_bytes),
+            Ok(image) => Some(image),
             Err(_err) => None,
         }
     } else {
@@ -128,58 +121,12 @@ pub async fn get_workshop_item(
     Ok(barony_mod)
 }
 
-pub async fn download_image(client: Client, url: String) -> Result<Vec<u8>, Error> {
+pub async fn download_image(
+    client: Client,
+    url: String,
+) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, Error> {
     let image_bytes = client.get(url).send().await?.bytes().await?;
-    Ok(image_bytes.to_vec())
+    let image = image::load_from_memory(&image_bytes).unwrap();
+    let resized = resize(&image, 175, 175, Triangle);
+    Ok(resized)
 }
-
-// pub async fn steam_request(steam_key: String) -> Result<Vec<SteamWorkshopMod>, String> {
-
-//     // let client = reqwest::Client::new();
-// }
-// dbg!(&response);
-// match response {
-//     Ok(result) => {
-//         if result.status() == 403 {
-//             return Err("Not authenticated. Invalid Steam API key.".to_string());
-//         }
-
-// let text = result.text().await;
-// match text {
-//     Ok(data)ii => {
-//         let json: SteamApiResponse = serde_json::from_str(data.as_str()).unwrap();
-//         // dbg!(json);
-//         // Ok(json)
-//     }
-//     Err(_err) => Err("failure".to_string()),
-// }
-// }
-// Err(_error) => Err("fatal failure".to_string()),
-// }
-// // dbg!(&response);
-// // response
-// }
-
-// async fn get_mods_data(steam_key: String) -> Result<Vec<SteamWorkshopMod>, &'static str> {
-//     let mut params = map!(
-//         "key" => steam_key,
-//         "appid" => BARONY_APP_ID
-//     );
-
-//     let client = reqwest::Client::new();
-
-//     let response = block_on(|| {
-//         client
-//             .get("https://api.steampowered.com/IPublishedFileService/QueryFiles/v1")
-//             .form(&params)
-//             .send()
-//     });
-
-//     dbg!(response);
-//     if let Ok(response) = response {
-//         dbg!(response);
-//         return Err("yeah");
-//     } else {
-//         return Err("Could not request Steam successfully. Please make sure that the provided steam key is valid.");
-//     }
-// }
