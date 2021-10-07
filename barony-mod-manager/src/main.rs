@@ -47,6 +47,7 @@ struct BaronyModManager {
 
     // Show only installed checkbox
     show_only_installed: bool,
+    loading_mods: bool,
 
     // Barony dir input
     barony_dir_str: String,
@@ -112,6 +113,7 @@ impl Application for BaronyModManager {
             selected_sorter: Some(Sorter::default()),
             show_only_installed: false,
 
+            loading_mods: false,
             tag_picklist: pick_list::State::default(),
             selected_tag: Some(PickableTag::default()),
 
@@ -158,13 +160,17 @@ impl Application for BaronyModManager {
                 self.show_only_installed = new_value;
                 Command::none()
             }
-            Message::ButtonWasPressed => Command::perform(
-                get_total_mods(self.http_client.clone(), self.steam_api_key.clone()),
-                |result| match result {
-                    Ok(number) => Message::TotalModsNumber(number),
-                    Err(message) => Message::ErrorHappened(message),
-                },
-            ),
+            Message::ButtonWasPressed => {
+                self.mods = None;
+                self.loading_mods = true;
+                Command::perform(
+                    get_total_mods(self.http_client.clone(), self.steam_api_key.clone()),
+                    |result| match result {
+                        Ok(number) => Message::TotalModsNumber(number),
+                        Err(message) => Message::ErrorHappened(message),
+                    },
+                )
+            }
             Message::TotalModsNumber(total) => iced::Command::batch((1..=total).map(|n| {
                 Command::perform(
                     get_workshop_item(self.http_client.clone(), self.steam_api_key.clone(), n),
@@ -200,6 +206,8 @@ impl Application for BaronyModManager {
                 Command::none()
             }
             Message::ModFetched(barony_mod) => {
+                self.loading_mods = false;
+
                 if let Some(mods) = &mut self.mods {
                     mods.push(barony_mod.clone()) // self.mods.unwrap().push(barony_mod)
                 } else {
@@ -211,30 +219,8 @@ impl Application for BaronyModManager {
                     self.tags.insert(pickable);
                 }
 
-                // Command::perform(
-                //     download_image(
-                //         self.http_client.clone(),
-                //         barony_mod.workshop.preview_url.clone(),
-                //     ),
-                //     move |result| match result {
-                //         Ok(image) => {
-                //             Message::ModImageFetched(barony_mod.workshop.id.clone(), image)
-                //         }
-                //         Err(_msg) => Message::NoOp,
-                //     },
-                // )
-
                 Command::none()
             }
-            // Message::ModImageFetched(id, image) => {
-            //     if let Some(mods) = &mut self.mods {
-            //         let index = mods.into_iter().position(|m| m.workshop.id == id).unwrap();
-            //         let barony_mod = mods.get_mut(index).unwrap();
-            //         barony_mod.image_handle = Some(image)
-            //     }
-
-            //     Command::none()
-            // }
             Message::TestButtonPressed => {
                 dbg!("Button was pressed");
                 Command::none()
@@ -391,9 +377,16 @@ impl Application for BaronyModManager {
                 "Add your steam API key to the bottom left input and click the \"Refresh\" button.",
             )
             .color(Color::WHITE)
-            // .vertical_alignment(iced::VerticalAlignment::Center)
-            // .horizontal_alignment(iced::HorizontalAlignment::Center)
             .size(35);
+
+            // TODO: Create function for those repeated aligned container creations
+            Container::new(text)
+                .align_x(Align::Center)
+                .align_y(Align::Center)
+                .width(Length::Fill)
+                .height(Length::Fill)
+        } else if self.loading_mods {
+            let text = Text::new("Loading mods...").color(Color::WHITE).size(35);
 
             Container::new(text)
                 .align_x(Align::Center)
@@ -402,7 +395,19 @@ impl Application for BaronyModManager {
                 .height(Length::Fill)
         } else if let Some(error) = &self.error_message {
             let text = Text::new(error).size(35).color(Color::WHITE);
-            // Column::new().height(Length::Fill).push(text)
+
+            Container::new(text)
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .align_x(Align::Center)
+                .align_y(Align::Center)
+        } else if self.mods.is_none() {
+            let text = Text::new(
+                "You have not loaded the available mods yet. Click the \"Refresh\" button to load them.",
+            )
+            .size(30)
+            .color(Color::WHITE);
+
             Container::new(text)
                 .height(Length::Fill)
                 .width(Length::Fill)
@@ -415,6 +420,7 @@ impl Application for BaronyModManager {
                 .width(Length::Fill)
                 .height(Length::Fill);
 
+            // TODO: Can be safely unwrapped here.
             mods_scrollable = if let Some(mods) = &self.mods {
                 // TODO: Filter mods here
 

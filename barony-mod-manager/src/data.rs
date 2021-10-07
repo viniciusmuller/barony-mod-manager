@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
 use iced::image::Handle;
-use iced::Image;
-use image::{DynamicImage, ImageBuffer, Rgba};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
 use serde_with::TimestampSeconds;
@@ -9,7 +7,7 @@ use serde_with::TimestampSeconds;
 #[derive(Debug, Clone)]
 pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
-    pub image_handle: Handle, // Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
+    pub image_handle: Handle,
     pub is_active: bool,
     pub is_downloaded: bool,
 }
@@ -36,6 +34,7 @@ pub struct SteamWorkshopTotal {
 
 #[serde_with::serde_as]
 #[derive(Deserialize, Debug, Clone)]
+// TODO: Figure out about steam workshop dependencies and download mods' dependencies
 pub struct SteamWorkshopMod {
     #[serde(rename = "publishedfileid")]
     pub id: String,
