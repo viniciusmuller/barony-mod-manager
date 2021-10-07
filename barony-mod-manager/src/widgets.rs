@@ -1,11 +1,9 @@
 use std::{
+    cmp::Ordering,
     fmt::{self, Display},
-    hash::{Hash, Hasher},
 };
 
-use image::{DynamicImage, ImageBuffer, Rgba};
-
-use crate::data::{self, BaronyMod, SteamApiResponse, SteamWorkshopMod, SteamWorkshopTag};
+use crate::data::{BaronyMod, SteamWorkshopTag};
 
 #[derive(Clone, Debug)]
 pub enum Message {
@@ -18,10 +16,11 @@ pub enum Message {
     TagSelected(PickableTag),
     FilterSelected(Filter),
     ModFetched(BaronyMod),
-    ModImageFetched(String, ImageBuffer<Rgba<u8>, Vec<u8>>),
+    // ModImageFetched(String, ImageBuffer<Rgba<u8>, Vec<u8>>),
     EventOccurred(iced_native::Event),
     SorterSelected(Sorter),
     ErrorHappened(String),
+    TestButtonPressed,
     ButtonWasPressed,
     NoOp,
 }
@@ -45,15 +44,6 @@ impl Display for PickableTag {
     }
 }
 
-// impl Hash for PickableTag {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         match self {
-//             Some(tag) => self.tag.hash(state),
-//             _ => None
-//         }
-//     }
-// }
-
 impl Default for PickableTag {
     fn default() -> PickableTag {
         PickableTag::None
@@ -67,11 +57,30 @@ impl PartialEq for PickableTag {
 }
 impl Eq for PickableTag {}
 
+impl Ord for PickableTag {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Greater)
+    }
+}
+
+impl PartialOrd for PickableTag {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(match self {
+            PickableTag::Some(tag) => match other {
+                PickableTag::Some(other_tag) => tag.tag.cmp(&other_tag.tag),
+                _ => Ordering::Less,
+            },
+            _ => Ordering::Less,
+        })
+    }
+}
+
 /// Possible fields that can be used to sort the mods
 #[derive(Clone, Debug)]
 pub enum Sorter {
     VoteScore,
     Views,
+    Size,
     Subscribed,
     Updated,
     Created,
@@ -79,9 +88,10 @@ pub enum Sorter {
 }
 
 impl Sorter {
-    pub const ALL: [Sorter; 6] = [
+    pub const ALL: [Sorter; 7] = [
         Sorter::VoteScore,
         Sorter::Views,
+        Sorter::Size,
         Sorter::Subscribed,
         Sorter::Updated,
         Sorter::Created,
@@ -97,6 +107,7 @@ impl Display for Sorter {
             match self {
                 Sorter::VoteScore => "Vote score",
                 Sorter::Views => "Views",
+                Sorter::Size => "Size",
                 Sorter::Subscribed => "Subscribed",
                 Sorter::Updated => "Date updated",
                 Sorter::Created => "Date created",

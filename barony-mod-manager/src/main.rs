@@ -1,18 +1,15 @@
-use std::{collections::HashSet, os::unix::prelude::CommandExt, path::PathBuf, vec};
+use std::{collections::HashSet, path::PathBuf, vec};
 
-use ::image::imageops::{
-    resize,
-    FilterType::{Lanczos3, Triangle},
-};
 use barony_mod_manager::{
-    data::{BaronyMod, SteamWorkshopTag},
+    data::BaronyMod,
     filesystem,
-    steam_api::{download_image, get_total_mods, get_workshop_item},
-    styling::BaronyModManagerUiStyles,
+    steam_api::{get_total_mods, get_workshop_item},
+    styling::GeneralUiStyles,
     widgets::{Filter, Message, PickableTag, Sorter},
 };
+use chrono::Datelike;
 use iced::{
-    button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
+    button, executor, pick_list, scrollable, text_input, Align, Application, Button,
     Checkbox, Clipboard, Color, Command, Container, Element, Image, Length, PickList, Row,
     Settings, Subscription, Text, TextInput,
 };
@@ -56,10 +53,12 @@ struct BaronyModManager {
     barony_dir_input: text_input::State,
 
     // Button
-    button_state: button::State,
-
+    search_button_state: button::State,
     filter_picklist: pick_list::State<Filter>,
     selected_filter: Option<Filter>,
+
+    download_buttons: Vec<button::State>,
+    activate_buttons: Vec<button::State>,
 
     mods_scrollable: scrollable::State,
 
@@ -113,7 +112,11 @@ impl Application for BaronyModManager {
             barony_dir_str: persisted_settings.barony_directory_path.unwrap_or_default(),
             barony_dir_input: text_input::State::default(),
 
-            button_state: button::State::default(),
+            // TODO: Remove
+            search_button_state: button::State::default(),
+
+            download_buttons: vec![],
+            activate_buttons: vec![],
 
             mods_scrollable: scrollable::State::default(),
 
@@ -208,29 +211,34 @@ impl Application for BaronyModManager {
                     self.tags.insert(pickable);
                 }
 
-                Command::perform(
-                    download_image(
-                        self.http_client.clone(),
-                        barony_mod.workshop.preview_url.clone(),
-                    ),
-                    move |result| match result {
-                        Ok(image) => {
-                            Message::ModImageFetched(barony_mod.workshop.id.clone(), image)
-                        }
-                        Err(_msg) => Message::NoOp,
-                    },
-                )
-            }
-            Message::ModImageFetched(id, image) => {
-                if let Some(mods) = &mut self.mods {
-                    let index = mods.into_iter().position(|m| m.workshop.id == id).unwrap();
-                    let barony_mod = mods.get_mut(index).unwrap();
-                    barony_mod.image = Some(image)
-                }
+                // Command::perform(
+                //     download_image(
+                //         self.http_client.clone(),
+                //         barony_mod.workshop.preview_url.clone(),
+                //     ),
+                //     move |result| match result {
+                //         Ok(image) => {
+                //             Message::ModImageFetched(barony_mod.workshop.id.clone(), image)
+                //         }
+                //         Err(_msg) => Message::NoOp,
+                //     },
+                // )
 
                 Command::none()
             }
-            // Message::ModReady(barony_mod) => Command::none(),
+            // Message::ModImageFetched(id, image) => {
+            //     if let Some(mods) = &mut self.mods {
+            //         let index = mods.into_iter().position(|m| m.workshop.id == id).unwrap();
+            //         let barony_mod = mods.get_mut(index).unwrap();
+            //         barony_mod.image_handle = Some(image)
+            //     }
+
+            //     Command::none()
+            // }
+            Message::TestButtonPressed => {
+                dbg!("Button was pressed");
+                Command::none()
+            }
             Message::ErrorHappened(msg) => {
                 self.error_message = Some(format!("An error occurred: {}", msg));
                 Command::none()
@@ -254,7 +262,7 @@ impl Application for BaronyModManager {
         )
         .padding(5)
         .width(Length::FillPortion(2))
-        .style(BaronyModManagerUiStyles)
+        .style(GeneralUiStyles)
         .size(20);
 
         let header = Row::new().push(app_name).push(mod_search_input);
@@ -266,7 +274,7 @@ impl Application for BaronyModManager {
             Message::ToggleHiddenApiKeyInput,
         )
         .size(20)
-        .style(BaronyModManagerUiStyles)
+        .style(GeneralUiStyles)
         .text_size(20);
 
         let mut api_key_input = TextInput::new(
@@ -276,7 +284,7 @@ impl Application for BaronyModManager {
             Message::ApiKeyInputChanged,
         )
         .padding(5)
-        .style(BaronyModManagerUiStyles)
+        .style(GeneralUiStyles)
         .size(20);
 
         api_key_input = if self.api_key_input_hidden {
@@ -298,7 +306,7 @@ impl Application for BaronyModManager {
             Message::BaronyDirectoryPathChanged,
         )
         .padding(5)
-        .style(BaronyModManagerUiStyles)
+        .style(GeneralUiStyles)
         .width(Length::FillPortion(2))
         .size(20);
 
@@ -316,21 +324,13 @@ impl Application for BaronyModManager {
             self.selected_filter.clone(),
             Message::FilterSelected,
         )
-        .style(BaronyModManagerUiStyles);
+        .style(GeneralUiStyles);
 
         let filter_pick_list_ = Row::new()
             .spacing(10)
             .align_items(Align::Center)
             .push(filter_picklist_label)
             .push(filter_pick_list);
-        // let show_only_installed = Checkbox::new(
-        //     self.show_only_installed,
-        //     "List only installed mods",
-        //     Message::ToggleShowOnlyInstalled,
-        // )
-        // .size(20)
-        // .style(BaronyModManagerUiStyles)
-        // .text_size(20);
 
         let pick_list_label = Text::new("Sort by:").color(Color::WHITE);
         let pick_list = PickList::new(
@@ -340,16 +340,20 @@ impl Application for BaronyModManager {
             Message::SorterSelected,
         )
         .text_size(20)
-        .style(BaronyModManagerUiStyles);
+        .style(GeneralUiStyles);
+
+        let mut tags = self.tags.clone().into_iter().collect::<Vec<_>>();
+        tags.push(PickableTag::None);
+        tags.sort();
 
         let pick_list_tags = PickList::new(
             &mut self.tag_picklist,
-            self.tags.clone().into_iter().collect::<Vec<_>>(),
+            tags,
             self.selected_tag.clone(),
             Message::TagSelected,
         )
         .text_size(20)
-        .style(BaronyModManagerUiStyles);
+        .style(GeneralUiStyles);
 
         let tag_pick_list_label = Text::new("Tag:").color(Color::WHITE);
         let tag_pick_list = Row::new()
@@ -369,12 +373,11 @@ impl Application for BaronyModManager {
             .align_items(Align::Center)
             .push(pick_list_full)
             .push(filter_pick_list_)
-            // .push(show_only_installed)
             .push(tag_pick_list);
 
         // ---------------- Mods container ------------------
-        let button = Button::new(&mut self.button_state, Text::new("yeah"))
-            .style(BaronyModManagerUiStyles)
+        let button = Button::new(&mut self.search_button_state, Text::new("Search"))
+            .style(GeneralUiStyles)
             .on_press(Message::ButtonWasPressed);
 
         let main_section = if self.steam_api_key.is_empty() {
@@ -392,19 +395,110 @@ impl Application for BaronyModManager {
                 .width(Length::Fill)
                 .height(Length::Fill);
 
-            mods_scrollable = if let Some(mods) = self.mods.as_ref() {
+            mods_scrollable = if let Some(mods) = &self.mods {
+                // TODO: Filter mods here
+
+                // let download_buttons = &mut self.download_buttons;
+                // let no_image = self.mod_no_image_image;
+
                 mods.into_iter().fold(mods_scrollable, |scroll, mod_| {
-                    if let Some(image) = mod_.image.clone() {
-                        let handle = image::Handle::from_pixels(
-                            image.width(),
-                            image.height(),
-                            image.to_vec(),
-                        );
-                        let image = Image::new(handle);
-                        scroll.push(image)
-                    } else {
-                        scroll
-                    }
+                    let mod_image = Image::new(mod_.image_handle.clone());
+
+                    let views_label =
+                        Text::new(format!("Views: {}", mod_.workshop.views)).color(Color::WHITE);
+
+                    let votes_up_label =
+                        Text::new(format!("Up: {}", mod_.workshop.vote_data.votes_up))
+                            .color(Color::WHITE);
+
+                    let votes_down_label =
+                        Text::new(format!("Down: {}", mod_.workshop.vote_data.votes_down))
+                            .color(Color::WHITE);
+
+                    let votes_row = Row::new()
+                        .spacing(5)
+                        .push(votes_up_label)
+                        .push(votes_down_label);
+
+                    // TODO: Create function for this
+                    let created_at = Text::new(format!(
+                        "Created: {}/{}/{}",
+                        mod_.workshop.time_updated.day(),
+                        mod_.workshop.time_updated.month(),
+                        mod_.workshop.time_updated.year()
+                    ))
+                    .color(Color::WHITE);
+
+                    let last_updated_at = Text::new(format!(
+                        "Updated: {}/{}/{}",
+                        mod_.workshop.time_updated.day(),
+                        mod_.workshop.time_updated.month(),
+                        mod_.workshop.time_updated.year()
+                    ))
+                    .color(Color::WHITE);
+
+                    // let mut download_button_state = button::State::default();
+                    // download_buttons.push(download_button_state);
+                    // let download_button =
+                    //     Button::new(&mut download_button_state, Text::new("Download"))
+                    //         .on_press(Message::TestButtonPressed);
+
+                    // let activate_button = Button::new(
+                    //     &mut self.dummy_activate_button_state,
+                    //     Text::new("Activate"),
+                    // )
+                    // .on_press(Message::TestButtonPressed);
+
+                    // let buttons_row = Row::new().push(download_button); //.push(activate_button);
+
+                    // TODO: Don't unwrap this here (if it crashes will explode the program)
+                    let bytes_size = mod_.workshop.file_size.parse::<f64>().unwrap();
+                    let size_text =
+                        Text::new(format!("Size: {:.2}MB", bytes_size / 1024.0 / 1024.0))
+                            .color(Color::WHITE);
+
+                    let size_col = Column::new().push(size_text);
+
+                    let dates_col = Column::new()
+                        .spacing(10)
+                        .push(created_at)
+                        .push(last_updated_at);
+
+                    let image_col = Column::new()
+                        .spacing(10)
+                        .push(mod_image)
+                        .push(views_label)
+                        .push(votes_row)
+                        .push(dates_col)
+                        .push(size_col);
+                    // .push(buttons_row);
+
+                    let mod_title = Text::new(mod_.workshop.title.clone())
+                        .size(25)
+                        .color(Color::WHITE);
+
+                    let mod_description =
+                        Text::new(mod_.workshop.description.clone()).color(Color::WHITE);
+
+                    let mod_info = Column::new()
+                        .spacing(10)
+                        .push(mod_title)
+                        .push(mod_description);
+
+                    // let mut btnstate = button::State::default();
+                    // self.download_buttons.push(btnstate);
+                    // let download_button = Button::new(&mut btnstate, Text::new("Download"))
+                    //     .on_press(Message::ButtonWasPressed);
+
+                    // let misc_mod_info = Column::new().push(download_button);
+
+                    let mod_card = Row::new().spacing(20).push(image_col).push(mod_info);
+                    // .push(misc_mod_info);
+
+                    scroll.push(mod_card)
+                    // } else {
+                    //     scroll
+                    // }
                 })
             } else {
                 mods_scrollable
@@ -428,7 +522,7 @@ impl Application for BaronyModManager {
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(20)
-            .style(BaronyModManagerUiStyles)
+            .style(GeneralUiStyles)
             .into()
     }
 }

@@ -1,8 +1,12 @@
-use iced::{Color, button, checkbox, container, pick_list::{self, Menu}, text_input};
+use iced::{
+    button, checkbox, container,
+    pick_list::{self, Menu},
+    text_input, Color,
+};
 
-pub struct BaronyModManagerUiStyles;
+pub struct GeneralUiStyles;
 
-impl container::StyleSheet for BaronyModManagerUiStyles {
+impl container::StyleSheet for GeneralUiStyles {
     fn style(&self) -> container::Style {
         container::Style {
             background: Color::from_rgb8(26, 26, 26).into(),
@@ -11,7 +15,7 @@ impl container::StyleSheet for BaronyModManagerUiStyles {
     }
 }
 
-impl text_input::StyleSheet for BaronyModManagerUiStyles {
+impl text_input::StyleSheet for GeneralUiStyles {
     fn active(&self) -> text_input::Style {
         text_input::Style {
             background: Color::from_rgb8(23, 23, 23).into(),
@@ -43,7 +47,7 @@ impl text_input::StyleSheet for BaronyModManagerUiStyles {
     }
 }
 
-impl checkbox::StyleSheet for BaronyModManagerUiStyles {
+impl checkbox::StyleSheet for GeneralUiStyles {
     fn active(&self, _: bool) -> checkbox::Style {
         checkbox::Style {
             background: Color::from_rgb8(35, 35, 35).into(),
@@ -65,7 +69,7 @@ impl checkbox::StyleSheet for BaronyModManagerUiStyles {
     }
 }
 
-impl button::StyleSheet for BaronyModManagerUiStyles {
+impl button::StyleSheet for GeneralUiStyles {
     fn active(&self) -> button::Style {
         button::Style {
             background: Some(Color::from_rgb8(23, 23, 23).into()),
@@ -100,7 +104,7 @@ impl button::StyleSheet for BaronyModManagerUiStyles {
     }
 }
 
-impl pick_list::StyleSheet for BaronyModManagerUiStyles {
+impl pick_list::StyleSheet for GeneralUiStyles {
     fn menu(&self) -> Menu {
         Menu {
             text_color: Color::from_rgb8(220, 220, 220),

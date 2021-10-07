@@ -4,9 +4,11 @@
 
 use std::{io::Bytes, time::Duration};
 
+use iced::image::Handle;
 use iced_native::executor::Tokio;
 use image::{
     imageops::{resize, FilterType::Triangle},
+    io::Reader,
     DynamicImage, ImageBuffer, ImageError, Rgba,
 };
 use rand::Rng;
@@ -102,20 +104,27 @@ pub async fn get_workshop_item(
 
     let steam_mod = mod_.response.mods.pop().unwrap();
 
-    let mut barony_mod = BaronyMod {
+    let image = Reader::open("resources/img/no_image.png")
+        .unwrap()
+        .decode()
+        .unwrap();
+    let resized = resize(&image, 175, 175, Triangle);
+    let default_handle = Handle::from_pixels(resized.width(), resized.height(), resized.to_vec());
+
+    let image_handle = if steam_mod.preview_url.is_empty() {
+        default_handle
+    } else {
+        match download_image(client, steam_mod.preview_url.clone()).await {
+            Ok(image) => Handle::from_pixels(image.width(), image.height(), image.to_vec()),
+            Err(_err) => default_handle,
+        }
+    };
+
+    let barony_mod = BaronyMod {
         is_downloaded: is_mod_downloaded(steam_mod.title.clone()),
         is_active: is_mod_active(steam_mod.title.clone()),
         workshop: steam_mod.clone(),
-        image: None,
-    };
-
-    barony_mod.image = if !steam_mod.preview_url.is_empty() {
-        match download_image(client, steam_mod.preview_url.clone()).await {
-            Ok(image) => Some(image),
-            Err(_err) => None,
-        }
-    } else {
-        None
+        image_handle,
     };
 
     Ok(barony_mod)

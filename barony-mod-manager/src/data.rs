@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+use iced::image::Handle;
+use iced::Image;
 use image::{DynamicImage, ImageBuffer, Rgba};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
@@ -7,7 +9,7 @@ use serde_with::TimestampSeconds;
 #[derive(Debug, Clone)]
 pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
-    pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
+    pub image_handle: Handle, // Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
     pub is_active: bool,
     pub is_downloaded: bool,
 }
@@ -57,9 +59,16 @@ pub struct SteamWorkshopTag {
     pub display_name: String,
 }
 
+impl PartialEq for SteamWorkshopTag {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag == other.tag
+    }
+}
+impl Eq for SteamWorkshopTag {}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SteamWorkshopVoteData {
     score: f64,
-    votes_up: u64,
-    votes_down: u64,
+    pub votes_up: u64,
+    pub votes_down: u64,
 }
