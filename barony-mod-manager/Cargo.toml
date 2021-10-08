@@ -9,7 +9,7 @@ edition = "2018"
 iced = { version = "0.3", features = ["tokio", "image"] }
 iced_native = "0.4"
 async-std = "1.10.0"
-reqwest = "0.11.4"
+reqwest = { version = "0.11.4", features = ["json"] }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_with = { version = "1.10", features = ["chrono"] }
 serde_json = "1.0"

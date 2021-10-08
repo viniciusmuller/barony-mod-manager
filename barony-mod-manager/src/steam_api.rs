@@ -7,29 +7,24 @@ use std::time::Duration;
 use iced::{button, image::Handle};
 use image::io::Reader;
 use reqwest::{Client, Error};
+use serde_json::json;
 
-use crate::{data::{BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopMod, SteamWorkshopModResponse, SteamWorkshopTotal}, filesystem::{is_mod_active, is_mod_downloaded}, images::{resize, to_handle}};
-
-macro_rules! map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
+use crate::{
+    data::{
+        BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopModResponse, SteamWorkshopTotal,
+    },
+    filesystem::{is_mod_active, is_mod_downloaded},
+    images::{resize, to_handle},
+};
 
 static BARONY_APP_ID: u64 = 371970;
 static APP_IMAGES_SIZE: u32 = 180; // Pixels
 
 pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, String> {
-    let params = map!(
-        "key" => steam_key,
-        "appid" => BARONY_APP_ID.to_string()
-    );
+    let params = json!({
+        "key": steam_key,
+        "appid": BARONY_APP_ID.to_string()
+    });
 
     let response = client
         .get("https://api.steampowered.com/IPublishedFileService/QueryFiles/v1")
@@ -60,16 +55,16 @@ pub async fn get_workshop_item(
     steam_key: String,
     mod_number: u64,
 ) -> Result<BaronyMod, String> {
-    let params = map!(
-        "key" => steam_key,
-        "appid" => BARONY_APP_ID.to_string(),
-        "return_tags" => true.to_string(),
-        "return_vote_data" => true.to_string(),
-        "strip_description_bbcode" => true.to_string(),
-        "page" => mod_number.to_string()
-    );
+    let params = json!({
+        "key": steam_key,
+        "appid": BARONY_APP_ID,
+        "return_tags": true,
+        "return_vote_data": true,
+        "strip_description_bbcode": true,
+        "page": mod_number
+    });
 
-    // Random sleep so that steam doesn't rate limit us for slapping 100+ concurrent
+    // Some sleep so that steam doesn't rate limit us for slapping 100+ concurrent
     // requests on them.
     let duration = Duration::from_millis(mod_number * 30);
     async_std::task::sleep(duration).await;
@@ -90,6 +85,7 @@ pub async fn get_workshop_item(
 
     let steam_mod = mod_.response.mods.pop().unwrap();
 
+    // TODO: Use include_bytes! here
     let image = Reader::open("resources/img/no_image.png")
         .unwrap()
         .decode()

@@ -1,7 +1,8 @@
-use std::{collections::HashSet, time::Duration, vec};
+use std::{collections::HashSet, path::Path, vec};
 
 use barony_mod_manager::{
     data::{BaronyMod, DownloadStatus},
+    downloader_api::{check_status, download_mod, queue_download},
     filesystem,
     steam_api::{get_total_mods, get_workshop_item},
     styling::{GeneralUiStyles, ModCardUiStyles},
@@ -117,7 +118,6 @@ impl Application for BaronyModManager {
             barony_dir_str: persisted_settings.barony_directory_path.unwrap_or_default(),
             barony_dir_input: text_input::State::default(),
 
-            // TODO: Remove
             search_button_state: button::State::default(),
 
             mods_scrollable: scrollable::State::default(),
@@ -129,6 +129,7 @@ impl Application for BaronyModManager {
             error_message: None,
         };
 
+        // TODO: Maybe already fetch mods here if steam api key was loaded successfully
         (initial_state, Command::none())
     }
 
@@ -250,28 +251,27 @@ impl Application for BaronyModManager {
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
-                selected_mod.is_downloaded = true;
-                let duration = Duration::from_millis(1);
-                Command::perform(async_std::task::sleep(duration), move |_| {
-                    Message::PreparingModDownload(id.clone())
-                })
-            }
-            Message::PreparingModDownload(id) => {
-                let selected_mod = self
-                    .mods
-                    .as_mut()
-                    .unwrap()
-                    .into_iter()
-                    .find(|_mod| _mod.workshop.id == id)
-                    .unwrap();
-
                 selected_mod.download_status = DownloadStatus::Preparing;
-                let duration = Duration::from_millis(800);
-                Command::perform(async_std::task::sleep(duration), move |_| {
-                    Message::ModDownloadReady(id.clone())
-                })
+                Command::perform(
+                    queue_download(self.http_client.clone(), id.parse::<u32>().unwrap()),
+                    move |result| match result {
+                        Ok(uuid) => Message::PreparingModDownload(id.clone(), uuid),
+                        _ => todo!(),
+                    },
+                )
             }
-            Message::ModDownloadReady(id) => {
+            Message::PreparingModDownload(id, uuid) => Command::perform(
+                check_status(self.http_client.clone(), uuid.clone()),
+                move |result| match result {
+                    Ok(true) => Message::ModDownloadReady(id.clone(), uuid.clone()),
+                    Ok(false) => Message::PreparingModDownload(id.clone(), uuid.clone()),
+                    Err(err) => {
+                        dbg!(err);
+                        todo!()
+                    }
+                },
+            ),
+            Message::ModDownloadReady(id, uuid) => {
                 let selected_mod = self
                     .mods
                     .as_mut()
@@ -281,10 +281,13 @@ impl Application for BaronyModManager {
                     .unwrap();
 
                 selected_mod.download_status = DownloadStatus::Downloading;
-                let duration = Duration::from_millis(1500);
-                Command::perform(async_std::task::sleep(duration), move |_| {
-                    Message::ModDownloaded(id.clone())
-                })
+                Command::perform(
+                    download_mod(self.http_client.clone(), uuid.clone()),
+                    move |result| match result {
+                        Ok(()) => Message::ModDownloaded(id.clone()),
+                        _ => todo!(),
+                    },
+                )
             }
             Message::ModDownloaded(id) => {
                 let selected_mod = self
@@ -373,7 +376,17 @@ impl Application for BaronyModManager {
             .push(toggle_api_key_input_hidden)
             .push(api_key_input);
 
-        let barony_path_label = Text::new("Barony directory").size(20).color(Color::WHITE);
+        let barony_path = Path::new(&self.barony_dir_str);
+        let path_label_message = format!(
+            "Barony directory {}",
+            if barony_path.exists() && barony_path.is_dir() {
+                "(VALID)"
+            } else {
+                "(INVALID)"
+            }
+        );
+
+        let barony_path_label = Text::new(path_label_message).size(20).color(Color::WHITE);
         let barony_path_input = TextInput::new(
             &mut self.barony_dir_input,
             "Barony directory",
