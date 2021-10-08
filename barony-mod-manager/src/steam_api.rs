@@ -4,17 +4,11 @@
 
 use std::time::Duration;
 
-use iced::image::Handle;
+use iced::{button, image::Handle};
 use image::io::Reader;
 use reqwest::{Client, Error};
 
-use crate::{
-    data::{
-        BaronyMod, SteamApiResponse, SteamWorkshopMod, SteamWorkshopModResponse, SteamWorkshopTotal,
-    },
-    filesystem::{is_mod_active, is_mod_downloaded},
-    images::{resize, to_handle},
-};
+use crate::{data::{BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopMod, SteamWorkshopModResponse, SteamWorkshopTotal}, filesystem::{is_mod_active, is_mod_downloaded}, images::{resize, to_handle}};
 
 macro_rules! map(
     { $($key:expr => $value:expr),+ } => {
@@ -118,6 +112,8 @@ pub async fn get_workshop_item(
         is_active: is_mod_active(steam_mod.title.clone()),
         workshop: steam_mod.clone(),
         image_handle,
+        download_button: button::State::new(),
+        download_status: DownloadStatus::NotDownloaded,
     };
 
     Ok(barony_mod)

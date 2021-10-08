@@ -1,4 +1,7 @@
+use std::fmt::{self, Display};
+
 use chrono::{DateTime, Utc};
+use iced::button;
 use iced::image::Handle;
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
@@ -9,7 +12,34 @@ pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
     pub image_handle: Handle,
     pub is_active: bool,
-    pub is_downloaded: bool,
+    pub is_downloaded: bool, // Remove this field
+    pub download_button: button::State,
+    pub download_status: DownloadStatus,
+}
+
+#[derive(Debug, Clone)]
+pub enum DownloadStatus {
+    Downloaded,
+    NotDownloaded,
+    Preparing,
+    Downloading,
+    ErrorOccurred,
+}
+
+impl Display for DownloadStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                DownloadStatus::Downloaded => "Downloaded",
+                DownloadStatus::NotDownloaded => "Not downloaded",
+                DownloadStatus::Preparing => "Preparing download...",
+                DownloadStatus::Downloading => "Downloading...",
+                DownloadStatus::ErrorOccurred => "Error occurred. Could not download the mod.",
+            }
+        )
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]

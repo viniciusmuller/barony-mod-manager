@@ -3,26 +3,34 @@ use std::{
     fmt::{self, Display},
 };
 
-use iced::{Align, Container, Element, Length, Text};
-
 use crate::data::{BaronyMod, SteamWorkshopTag};
 
 #[derive(Clone, Debug)]
 pub enum Message {
+    // UI related events
     ApiKeyInputChanged(String),
     ModSearchInputChanged(String),
     BaronyDirectoryPathChanged(String),
     ToggleHiddenApiKeyInput(bool),
     ToggleShowOnlyInstalled(bool),
-    TotalModsNumber(u64),
     TagSelected(PickableTag),
     FilterSelected(Filter),
-    ModFetched(BaronyMod),
     SorterSelected(Sorter),
-    ErrorHappened(String),
     CloseRequested,
-    TestButtonPressed,
-    ButtonWasPressed,
+    LoadMods,
+    ErrorHappened(String),
+
+    // Application inner workings' events
+    TotalModsNumber(u64),
+    ModFetched(BaronyMod),
+    DownloadMod(String),
+    PreparingModDownload(String),
+    ModDownloadReady(String),
+    ModDownloaded(String),
+    RemoveMod(String),
+    ToggleActivateMod(String, bool),
+
+    // Misc
     NoOp,
 }
 
@@ -128,6 +136,27 @@ impl Eq for Sorter {}
 impl Default for Sorter {
     fn default() -> Sorter {
         Sorter::None
+    }
+}
+
+// #[derive(Clone, Debug)]
+// TODO: Have two view style: `Fancy` (the current) and `Simple` which will
+// look like a table view without images or description.
+pub enum ViewStyle {
+    Fancy,
+    Simple,
+}
+
+impl PartialEq for ViewStyle {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
+impl Eq for ViewStyle {}
+
+impl Default for ViewStyle {
+    fn default() -> ViewStyle {
+        ViewStyle::Fancy
     }
 }
 
