@@ -12,7 +12,6 @@ use serde_with::TimestampSeconds;
 pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
     pub image_handle: Handle,
-    pub is_active: bool,
     pub is_downloaded: bool, // Remove this field
     pub download_button: button::State,
     pub download_status: DownloadStatus,

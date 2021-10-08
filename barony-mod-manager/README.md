@@ -1,8 +1,8 @@
 ## TODO:
-- The actual mod management
 - Handle mods which depends on other mods
-- Simple mod view
+- A simple table-like mod view
 - Modpack support
+- Folder picker widget for choosing the barony folder
 - Mod download progress bar
-- Wait until the iced library update its `Scrollable` widget, which will make
+- Wait until the iced library improve its `Scrollable` widget, which will make
     the application use much less resources.

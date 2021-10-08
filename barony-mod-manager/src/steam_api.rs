@@ -13,7 +13,6 @@ use crate::{
     data::{
         BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopModResponse, SteamWorkshopTotal,
     },
-    filesystem::{is_mod_active, is_mod_downloaded},
     images::{resize, to_handle},
 };
 
@@ -35,10 +34,11 @@ pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, St
     match response {
         Ok(response) => {
             if response.status() != 403 {
-                let content = response.text().await.unwrap();
-                let content = content.as_str();
-                let json: SteamApiResponse<SteamWorkshopTotal> =
-                    serde_json::from_str(content).unwrap();
+                let json = response
+                    .json::<SteamApiResponse<SteamWorkshopTotal>>()
+                    .await
+                    .unwrap();
+
                 Ok(json.response.total)
             } else {
                 Err("Not authenticated. Invalid Steam API key.".to_string())
@@ -75,13 +75,13 @@ pub async fn get_workshop_item(
         .send()
         .await;
 
-    let content = match response {
-        Ok(response) => response.text().await.unwrap(),
+    let mut mod_ = match response {
+        Ok(response) => response
+            .json::<SteamApiResponse<SteamWorkshopModResponse>>()
+            .await
+            .unwrap(),
         Err(_error) => return Err("Failed to get mod data.".to_string()),
     };
-
-    let mut mod_: SteamApiResponse<SteamWorkshopModResponse> =
-        serde_json::from_str(content.as_str()).unwrap();
 
     let steam_mod = mod_.response.mods.pop().unwrap();
 
@@ -104,8 +104,10 @@ pub async fn get_workshop_item(
     };
 
     let barony_mod = BaronyMod {
-        is_downloaded: is_mod_downloaded(steam_mod.title.clone()),
-        is_active: is_mod_active(steam_mod.title.clone()),
+        // TODO: To check if mod is download when building, one will have to have the barony's path
+        // in hands. Probably break this into two functions: download_from_workshop and
+        // build_barony_mod which are called from the update function
+        is_downloaded: false, //is_mod_downloaded(steam_mod.title.clone()),
         workshop: steam_mod.clone(),
         image_handle,
         download_button: button::State::new(),

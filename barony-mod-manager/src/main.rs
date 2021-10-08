@@ -3,7 +3,7 @@ use std::{collections::HashSet, path::Path, vec};
 use barony_mod_manager::{
     data::{BaronyMod, DownloadStatus},
     downloader_api::{check_status, download_mod, queue_download},
-    filesystem,
+    filesystem::{self, barony_dir_valid},
     steam_api::{get_total_mods, get_workshop_item},
     styling::{GeneralUiStyles, ModCardUiStyles},
     widgets::{Filter, Message, PickableTag, Sorter},
@@ -53,6 +53,7 @@ struct BaronyModManager {
     // Barony dir input
     barony_dir_str: String,
     barony_dir_input: text_input::State,
+    barony_dir_valid: bool,
 
     // Button
     search_button_state: button::State,
@@ -93,6 +94,7 @@ impl Application for BaronyModManager {
 
     fn new(_flags: Self::Flags) -> (BaronyModManager, Command<Message>) {
         let persisted_settings = filesystem::load_persisted_settings();
+        let barony_dir = persisted_settings.barony_directory_path.unwrap_or_default();
 
         let initial_state = BaronyModManager {
             // barony_dir: None,
@@ -115,7 +117,8 @@ impl Application for BaronyModManager {
             tag_picklist: pick_list::State::default(),
             selected_tag: Some(PickableTag::default()),
 
-            barony_dir_str: persisted_settings.barony_directory_path.unwrap_or_default(),
+            barony_dir_valid: barony_dir_valid(&barony_dir),
+            barony_dir_str: barony_dir,
             barony_dir_input: text_input::State::default(),
 
             search_button_state: button::State::default(),
@@ -188,6 +191,7 @@ impl Application for BaronyModManager {
                 Command::none()
             }
             Message::BaronyDirectoryPathChanged(new_value) => {
+                self.barony_dir_valid = barony_dir_valid(&new_value);
                 self.barony_dir_str = new_value;
                 Command::none()
             }
@@ -213,30 +217,6 @@ impl Application for BaronyModManager {
                 for tag in &barony_mod.workshop.tags {
                     let pickable = PickableTag::Some(tag.clone());
                     self.tags.insert(pickable);
-                }
-
-                Command::none()
-            }
-            Message::ToggleActivateMod(id, flag) => {
-                let selected_mod = self
-                    .mods
-                    .as_mut()
-                    .unwrap()
-                    .into_iter()
-                    .find(|_mod| _mod.workshop.id == id)
-                    .unwrap();
-
-                // If the mod is downloaded, it can be activated/deactivated
-                // let mod_can_change = match selected_mod.download_status {
-                //     DownloadStatus::Downloaded => true,
-                //     _ => false
-                // };
-
-                match selected_mod.download_status {
-                    DownloadStatus::Downloaded => {
-                        selected_mod.is_active = flag;
-                    }
-                    _ => (),
                 }
 
                 Command::none()
@@ -281,10 +261,24 @@ impl Application for BaronyModManager {
                     .unwrap();
 
                 selected_mod.download_status = DownloadStatus::Downloading;
+
+                // TODO: What are the suitable ways of passing thing to async closures without
+                // having to .clone() .clone() .clone()?
+                let barony_dir = self.barony_dir_str.clone();
+                let mod_title = selected_mod.workshop.title.clone();
+
                 Command::perform(
                     download_mod(self.http_client.clone(), uuid.clone()),
                     move |result| match result {
-                        Ok(()) => Message::ModDownloaded(id.clone()),
+                        Ok(zip_bytes) => {
+                            filesystem::write_mod_to_disk(
+                                barony_dir.clone(),
+                                mod_title.clone(),
+                                zip_bytes,
+                            )
+                            .unwrap();
+                            Message::ModDownloaded(id.clone())
+                        }
                         _ => todo!(),
                     },
                 )
@@ -298,6 +292,7 @@ impl Application for BaronyModManager {
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
+                selected_mod.is_downloaded = true;
                 selected_mod.download_status = DownloadStatus::Downloaded;
                 Command::none()
             }
@@ -310,9 +305,12 @@ impl Application for BaronyModManager {
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
-                // TODO: Remove mod files here
-
-                selected_mod.is_active = false;
+                // TODO: treat error
+                filesystem::delete_mod_from_disk(
+                    &self.barony_dir_str,
+                    &selected_mod.workshop.title,
+                )
+                .unwrap();
                 selected_mod.download_status = DownloadStatus::NotDownloaded;
                 Command::none()
             }
@@ -376,10 +374,9 @@ impl Application for BaronyModManager {
             .push(toggle_api_key_input_hidden)
             .push(api_key_input);
 
-        let barony_path = Path::new(&self.barony_dir_str);
         let path_label_message = format!(
             "Barony directory {}",
-            if barony_path.exists() && barony_path.is_dir() {
+            if self.barony_dir_valid {
                 "(VALID)"
             } else {
                 "(INVALID)"
@@ -527,140 +524,164 @@ impl Application for BaronyModManager {
                 .width(Length::Fill)
                 .height(Length::Fill);
 
-            // TODO: Can be safely unwrapped here.
+            // TODO: This can be safely unwrapped here.
             mods_scrollable = if let Some(mods) = &mut self.mods {
                 // TODO: Filter mods here
 
-                mods.into_iter().fold(mods_scrollable, |scroll, mod_| {
-                    let mod_image = Image::new(mod_.image_handle.clone());
-
-                    let views_label =
-                        Text::new(format!("Views: {}", mod_.workshop.views)).color(Color::WHITE);
-
-                    let votes_up_label =
-                        Text::new(format!("Up: {}", mod_.workshop.vote_data.votes_up))
-                            .color(Color::WHITE);
-
-                    let votes_down_label =
-                        Text::new(format!("Down: {}", mod_.workshop.vote_data.votes_down))
-                            .color(Color::WHITE);
-
-                    let votes_row = Row::new()
-                        .spacing(5)
-                        .push(votes_up_label)
-                        .push(votes_down_label);
-
-                    // TODO: Create function for this
-                    let created_at = Text::new(format!(
-                        "Created: {}/{}/{}",
-                        mod_.workshop.time_updated.day(),
-                        mod_.workshop.time_updated.month(),
-                        mod_.workshop.time_updated.year()
-                    ))
-                    .color(Color::WHITE);
-
-                    let last_updated_at = Text::new(format!(
-                        "Updated: {}/{}/{}",
-                        mod_.workshop.time_updated.day(),
-                        mod_.workshop.time_updated.month(),
-                        mod_.workshop.time_updated.year()
-                    ))
-                    .color(Color::WHITE);
-
-                    let id = mod_.workshop.id.clone();
-                    let activate_checkbox =
-                        Checkbox::new(mod_.is_active, "Activated", move |value| {
-                            Message::ToggleActivateMod(id.clone(), value)
+                let download_filtered = if let Some(filter) = &self.selected_filter {
+                    mods.into_iter()
+                        .filter(|mod_| match filter {
+                            Filter::Downloaded => mod_.is_downloaded,
+                            Filter::NonDownloaded => !mod_.is_downloaded,
+                            Filter::None => true,
                         })
-                        .spacing(8)
-                        .style(GeneralUiStyles);
+                        .collect::<Vec<_>>()
+                } else {
+                    mods.into_iter().collect::<Vec<_>>()
+                };
 
-                    let download_or_remove_button = match mod_.download_status {
-                        DownloadStatus::Downloaded => {
-                            Button::new(&mut mod_.download_button, Text::new("Remove"))
-                                .style(GeneralUiStyles)
-                                .on_press(Message::RemoveMod(mod_.workshop.id.clone()))
-                        }
-                        DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
-                            Button::new(&mut mod_.download_button, Text::new("Download"))
-                                .style(GeneralUiStyles)
-                                .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
-                        }
-                        // Remove on_press since it's already downloading
-                        _ => Button::new(&mut mod_.download_button, Text::new("Downloading"))
-                            .style(GeneralUiStyles),
-                    };
+                let tags_filtered = if let Some(tag) = &self.selected_tag {
+                    match tag {
+                        PickableTag::Some(tag) => download_filtered
+                            .into_iter()
+                            .filter(|mod_| {
+                                mod_.workshop
+                                    .clone()
+                                    .tags
+                                    .into_iter()
+                                    .any(|mod_tag| mod_tag.tag == tag.tag)
+                            })
+                            .collect::<Vec<_>>(),
+                        PickableTag::None => download_filtered,
+                    }
+                } else {
+                    download_filtered
+                };
 
-                    let buttons_row = Column::new()
-                        .spacing(10)
-                        .push(download_or_remove_button)
-                        .push(activate_checkbox);
+                // TODO: Return beautiful message if the resulting mods vector after
+                // filtering are empty
 
-                    // TODO: Don't unwrap this here (if it crashes will explode the program)
-                    let bytes_size = mod_.workshop.file_size.parse::<f64>().unwrap();
-                    let size_text =
-                        Text::new(format!("Size: {:.2}MB", bytes_size / 1024.0 / 1024.0))
+                tags_filtered
+                    .into_iter()
+                    .fold(mods_scrollable, |scroll, mod_| {
+                        let mod_image = Image::new(mod_.image_handle.clone());
+
+                        let views_label = Text::new(format!("Views: {}", mod_.workshop.views))
                             .color(Color::WHITE);
 
-                    let size_col = Column::new().push(size_text);
+                        let votes_up_label =
+                            Text::new(format!("Up: {}", mod_.workshop.vote_data.votes_up))
+                                .color(Color::WHITE);
 
-                    let dates_col = Column::new()
-                        .spacing(10)
-                        .push(created_at)
-                        .push(last_updated_at);
+                        let votes_down_label =
+                            Text::new(format!("Down: {}", mod_.workshop.vote_data.votes_down))
+                                .color(Color::WHITE);
 
-                    let image_col = Column::new()
-                        .spacing(10)
-                        .push(mod_image)
-                        .push(views_label)
-                        .push(votes_row)
-                        .push(dates_col)
-                        .push(size_col)
-                        .push(buttons_row);
+                        let votes_row = Row::new()
+                            .spacing(5)
+                            .push(votes_up_label)
+                            .push(votes_down_label);
 
-                    let mod_title = Text::new(mod_.workshop.title.clone())
-                        .size(25)
+                        // TODO: Create function for this
+                        let created_at = Text::new(format!(
+                            "Created: {}/{}/{}",
+                            mod_.workshop.time_updated.day(),
+                            mod_.workshop.time_updated.month(),
+                            mod_.workshop.time_updated.year()
+                        ))
                         .color(Color::WHITE);
 
-                    let description = mod_
-                        .workshop
-                        .description
-                        .chars()
-                        .into_iter()
-                        .take(2000)
-                        .collect::<String>();
+                        let last_updated_at = Text::new(format!(
+                            "Updated: {}/{}/{}",
+                            mod_.workshop.time_updated.day(),
+                            mod_.workshop.time_updated.month(),
+                            mod_.workshop.time_updated.year()
+                        ))
+                        .color(Color::WHITE);
 
-                    let description = if description.len() >= 2000 {
-                        format!("{}...", description)
-                    } else {
-                        description
-                    };
+                        let download_or_remove_button = match mod_.download_status {
+                            DownloadStatus::Downloaded => {
+                                Button::new(&mut mod_.download_button, Text::new("Remove"))
+                                    .style(GeneralUiStyles)
+                                    .on_press(Message::RemoveMod(mod_.workshop.id.clone()))
+                            }
+                            DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
+                                Button::new(&mut mod_.download_button, Text::new("Download"))
+                                    .style(GeneralUiStyles)
+                                    .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
+                            }
+                            // Remove on_press since it's already downloading
+                            _ => Button::new(&mut mod_.download_button, Text::new("Downloading"))
+                                .style(GeneralUiStyles),
+                        };
 
-                    let mod_description = Text::new(description).color(Color::WHITE);
+                        let buttons_row = Column::new().spacing(10).push(download_or_remove_button);
 
-                    let mod_info_description = Column::new()
-                        .spacing(10)
-                        .push(mod_title)
-                        .push(mod_description);
+                        // TODO: Don't unwrap this here (if it crashes will explode the program)
+                        let bytes_size = mod_.workshop.file_size.parse::<f64>().unwrap();
+                        let size_text =
+                            Text::new(format!("Size: {:.2}MB", bytes_size / 1024.0 / 1024.0))
+                                .color(Color::WHITE);
 
-                    let status_message = format!("Status: {}", mod_.download_status);
-                    let mod_download_status =
-                        Column::new().push(Text::new(status_message).color(Color::WHITE));
+                        let size_col = Column::new().push(size_text);
 
-                    let mod_info = Column::new()
-                        .spacing(10)
-                        .push(mod_info_description)
-                        .push(mod_download_status);
+                        let dates_col = Column::new()
+                            .spacing(10)
+                            .push(created_at)
+                            .push(last_updated_at);
 
-                    let mod_card = Row::new().spacing(20).push(image_col).push(mod_info);
+                        let image_col = Column::new()
+                            .spacing(10)
+                            .push(mod_image)
+                            .push(views_label)
+                            .push(votes_row)
+                            .push(dates_col)
+                            .push(size_col)
+                            .push(buttons_row);
 
-                    let container = Container::new(mod_card)
-                        .padding(10)
-                        .width(Length::Fill)
-                        .style(ModCardUiStyles);
+                        let mod_title = Text::new(mod_.workshop.title.clone())
+                            .size(25)
+                            .color(Color::WHITE);
 
-                    scroll.push(container)
-                })
+                        let description = mod_
+                            .workshop
+                            .description
+                            .chars()
+                            .into_iter()
+                            .take(2000)
+                            .collect::<String>();
+
+                        let description = if description.len() >= 2000 {
+                            format!("{}...", description)
+                        } else {
+                            description
+                        };
+
+                        let mod_description = Text::new(description).color(Color::WHITE);
+
+                        let mod_info_description = Column::new()
+                            .spacing(10)
+                            .push(mod_title)
+                            .push(mod_description);
+
+                        let status_message = format!("Status: {}", mod_.download_status);
+                        let mod_download_status =
+                            Column::new().push(Text::new(status_message).color(Color::WHITE));
+
+                        let mod_info = Column::new()
+                            .spacing(10)
+                            .push(mod_info_description)
+                            .push(mod_download_status);
+
+                        let mod_card = Row::new().spacing(20).push(image_col).push(mod_info);
+
+                        let container = Container::new(mod_card)
+                            .padding(10)
+                            .width(Length::Fill)
+                            .style(ModCardUiStyles);
+
+                        scroll.push(container)
+                    })
             } else {
                 mods_scrollable
             };

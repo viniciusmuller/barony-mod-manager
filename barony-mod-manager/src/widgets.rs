@@ -28,7 +28,6 @@ pub enum Message {
     ModDownloadReady(String, String),
     ModDownloaded(String),
     RemoveMod(String),
-    ToggleActivateMod(String, bool),
 
     // Misc
     NoOp,
@@ -161,23 +160,15 @@ impl Default for ViewStyle {
 }
 
 /// Possible fields that can be used to sort the mods
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Filter {
-    Active,
-    Inactive,
     Downloaded,
     NonDownloaded,
     None,
 }
 
 impl Filter {
-    pub const ALL: [Filter; 5] = [
-        Filter::Active,
-        Filter::Inactive,
-        Filter::Downloaded,
-        Filter::NonDownloaded,
-        Filter::None,
-    ];
+    pub const ALL: [Filter; 3] = [Filter::Downloaded, Filter::NonDownloaded, Filter::None];
 }
 
 impl Display for Filter {
@@ -186,8 +177,6 @@ impl Display for Filter {
             f,
             "{}",
             match self {
-                Filter::Active => "Active",
-                Filter::Inactive => "Inactive",
                 Filter::Downloaded => "Downloaded",
                 Filter::NonDownloaded => "Non Downloaded",
                 Filter::None => "None",
@@ -195,13 +184,6 @@ impl Display for Filter {
         )
     }
 }
-
-impl PartialEq for Filter {
-    fn eq(&self, _other: &Self) -> bool {
-        false
-    }
-}
-impl Eq for Filter {}
 
 impl Default for Filter {
     fn default() -> Filter {

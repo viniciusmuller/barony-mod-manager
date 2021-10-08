@@ -51,20 +51,12 @@ pub async fn check_status(client: Client, uuid: String) -> Result<bool, reqwest:
     }
 }
 
-pub async fn download_mod(client: Client, uuid: String) -> Result<(), reqwest::Error> {
+/// Downloads the mod from steamworkshopdownloader.io and returns it in `zip` format as a byte
+/// vector.
+pub async fn download_mod(client: Client, uuid: String) -> Result<Vec<u8>, reqwest::Error> {
     let endpoint = "https://backend-02-prd.steamworkshopdownloader.io/api/download/transmit";
     let params = json!({ "uuid": uuid });
     let response = client.get(endpoint).query(&params).send().await?;
-
-    let path = Path::new("./downloaded_mod.zip");
-
-    let mut file = match File::create(&path) {
-        Ok(file) => file,
-        Err(why) => panic!("couldn't create {}", why),
-    };
-
     let content = response.bytes().await?;
-
-    file.write_all(&content.to_vec()).unwrap();
-    Ok(())
+    Ok(content.to_vec())
 }
