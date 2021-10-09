@@ -62,31 +62,15 @@ pub fn is_mod_downloaded(barony_path: &String, mod_title: &String) -> bool {
     Path::new(barony_path).join("mods/").join(mod_path).exists()
 }
 
-// TODO: Should activating/deactivating mods be a future?
-
-// pub fn is_mod_active(barony_path: &String, mod_id: &String) -> bool {
-//     false
-// }
-
-// // All of those will be `Results`
-// pub fn activate_mod(barony_path: &String, mod_id: &String) {
-//     // Move the mod from the inactive_mods/ folder to the mods/ folder
-// }
-
-// pub fn deactivate_mod(barony_path: &String, mod_id: &String) {
-//     // Move the mod from the mods/ folder to the inactive_mods/ folder
-//     let mod_path = Path::new(barony_path).join("/mods").join(mod_id);
-//     let inactive_mod_path = Path::new(barony_path).join("/inactive_mods").join(mod_id);
-// }
-
 pub fn write_mod_to_disk(
     barony_path: String,
     mod_title: String,
     zip_bytes: Vec<u8>,
 ) -> Result<(), std::io::Error> {
+    let mod_title_clean = clean_filename(&mod_title);
     let mod_folder = Path::new(&barony_path)
         .join("mods/")
-        .join(format!("{}/", mod_title));
+        .join(format!("{}/", mod_title_clean));
 
     let cursor = std::io::Cursor::new(zip_bytes);
     let mut archive = zip::ZipArchive::new(cursor).unwrap();
@@ -127,6 +111,14 @@ pub fn delete_mod_from_disk(
     barony_path: &String,
     mod_title: &String,
 ) -> Result<(), std::io::Error> {
-    let mod_path = Path::new(barony_path).join("mods/").join(mod_title);
+    let foldername = clean_filename(mod_title);
+    let mod_path = Path::new(barony_path).join("mods/").join(foldername);
     std::fs::remove_dir_all(mod_path)
+}
+
+// This removes invalid filename characters that would make the program fail with
+// an OS error while trying to write the mod folder to disk.
+fn clean_filename(filename: &String) -> String {
+    let re = regex::Regex::new(r"<>:/\|?*").unwrap();
+    re.replace_all(filename, "").to_string()
 }
