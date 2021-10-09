@@ -1,7 +1,7 @@
 # Intro
 This project is a work-in-progress cross-platform mod manager for the game
 [Barony](https://store.steampowered.com/app/371970/Barony/). It aims to provide
-a platform-agnostic interface to manage all the barony mods avaiable through its
+a platform-agnostic interface to manage all the barony mods available through its
 [Steam Workshop](https://steamcommunity.com/workshop/about/?appid=371970). So
 you can easily download Barony mods, whether you are using a [custom Barony build](https://github.com/TurningWheel/Barony)
 or the Steam, Epic Games, or GOG version of the game.
@@ -16,7 +16,7 @@ can head towards https://steamcommunity.com/dev/apikey and get one (if you don't
 want to put a domain when creating the key, just use `127.0.0.1` instead).
 
 ## Using the mod manager
-The interface is meant to be pretty straightfoward, and the required steps to
+The interface is meant to be pretty straightforward, and the required steps to
 get it up and running are:
 
 - Add Steam API key to the bottom left input.
