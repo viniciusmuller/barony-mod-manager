@@ -27,6 +27,16 @@ After that you can use the search input and the filters to match exactly what
 you are looking for and install/uninstall mods using the respective buttons in
 their cards. Have a great time modding Barony!
 
+## Activating mods
+Since the game does an awesome job at loading/unloading mods at runtime, I don't
+think trying to mimic this functionality here is a great deal. So in order to
+activate or activate the mods you've downloaded:
+- Inside Barony, click `Custom Content`
+- Click `local mods` and it will show up all the mods that you've downloaded
+    through the mod manager
+- `load/unload` the mods that you want to
+- Click `start modded game` and be happy!
+
 ## Security advisory
 In order to provide an easier to use interface, the mod manager saves your Barony
 path and API key on disk, so you don't need to enter them every time you open
