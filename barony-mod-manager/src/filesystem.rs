@@ -53,7 +53,13 @@ pub fn load_persisted_settings() -> SettingsPersistance {
 }
 
 pub fn is_mod_downloaded(barony_path: &String, mod_title: &String) -> bool {
-    Path::new(barony_path).join(mod_title).exists()
+    if mod_title.is_empty() {
+        return false;
+    }
+
+    // Add a trailing slash since mods lies inside folders
+    let mod_path = format!("{}/", mod_title);
+    Path::new(barony_path).join("mods/").join(mod_path).exists()
 }
 
 // TODO: Should activating/deactivating mods be a future?

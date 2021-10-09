@@ -4,7 +4,7 @@ use barony_mod_manager::{
     data::{BaronyMod, DownloadStatus},
     downloader_api::{check_status, download_mod, queue_download},
     filesystem::{self, barony_dir_valid},
-    steam_api::{get_total_mods, get_workshop_item},
+    steam_api::{build_barony_mod, get_total_mods, get_workshop_item},
     styling::{GeneralUiStyles, ModCardUiStyles},
     widgets::{Filter, Message, PickableTag, Sorter, SortingStrategy},
 };
@@ -215,7 +215,22 @@ impl Application for BaronyModManager {
                 self.should_exit = true;
                 Command::none()
             }
-            Message::ModFetched(barony_mod) => {
+            Message::ModFetched(steam_workshop_mod) => {
+                for tag in &steam_workshop_mod.tags {
+                    let pickable = PickableTag::Some(tag.clone());
+                    self.tags.insert(pickable);
+                }
+
+                Command::perform(
+                    build_barony_mod(
+                        self.http_client.clone(),
+                        self.barony_dir_str.clone(),
+                        steam_workshop_mod,
+                    ),
+                    Message::ModBuilt,
+                )
+            }
+            Message::ModBuilt(barony_mod) => {
                 self.loading_mods = false;
                 self.error_message = None;
 
@@ -223,11 +238,6 @@ impl Application for BaronyModManager {
                     mods.push(barony_mod.clone()) // self.mods.unwrap().push(barony_mod)
                 } else {
                     self.mods = Some(vec![barony_mod.clone()])
-                }
-
-                for tag in &barony_mod.workshop.tags {
-                    let pickable = PickableTag::Some(tag.clone());
-                    self.tags.insert(pickable);
                 }
 
                 Command::none()
@@ -322,7 +332,9 @@ impl Application for BaronyModManager {
                     &selected_mod.workshop.title,
                 )
                 .unwrap();
+
                 selected_mod.download_status = DownloadStatus::NotDownloaded;
+                selected_mod.is_downloaded = false;
                 Command::none()
             }
             Message::ErrorHappened(msg) => {
@@ -670,20 +682,14 @@ impl Application for BaronyModManager {
                         ))
                         .color(Color::WHITE);
 
-                        let download_or_remove_button = match mod_.download_status {
-                            DownloadStatus::Downloaded => {
-                                Button::new(&mut mod_.download_button, Text::new("Remove"))
-                                    .style(GeneralUiStyles)
-                                    .on_press(Message::RemoveMod(mod_.workshop.id.clone()))
-                            }
-                            DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
-                                Button::new(&mut mod_.download_button, Text::new("Download"))
-                                    .style(GeneralUiStyles)
-                                    .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
-                            }
-                            // Remove on_press since it's already downloading
-                            _ => Button::new(&mut mod_.download_button, Text::new("Downloading"))
-                                .style(GeneralUiStyles),
+                        let download_or_remove_button = if mod_.is_downloaded {
+                            Button::new(&mut mod_.download_button, Text::new("Remove"))
+                                .style(GeneralUiStyles)
+                                .on_press(Message::RemoveMod(mod_.workshop.id.clone()))
+                        } else {
+                            Button::new(&mut mod_.download_button, Text::new("Download"))
+                                .style(GeneralUiStyles)
+                                .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
                         };
 
                         let buttons_row = Column::new().spacing(10).push(download_or_remove_button);

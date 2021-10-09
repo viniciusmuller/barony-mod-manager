@@ -5,19 +5,21 @@
 use std::time::Duration;
 
 use iced::{button, image::Handle};
-use image::io::Reader;
 use reqwest::{Client, Error};
 use serde_json::json;
 
 use crate::{
     data::{
-        BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopModResponse, SteamWorkshopTotal,
+        BaronyMod, DownloadStatus, SteamApiResponse, SteamWorkshopMod, SteamWorkshopModResponse,
+        SteamWorkshopTotal,
     },
+    filesystem::is_mod_downloaded,
     images::{resize, to_handle},
 };
 
 static BARONY_APP_ID: u64 = 371970;
 static APP_IMAGES_SIZE: u32 = 180; // Pixels
+static DEFAULT_IMAGE: &'static [u8; 4921] = include_bytes!("../resources/img/no_image.png");
 
 pub async fn get_total_mods(client: Client, steam_key: String) -> Result<u64, String> {
     let params = json!({
@@ -54,7 +56,7 @@ pub async fn get_workshop_item(
     client: Client,
     steam_key: String,
     mod_number: u64,
-) -> Result<BaronyMod, String> {
+) -> Result<SteamWorkshopMod, String> {
     let params = json!({
         "key": steam_key,
         "appid": BARONY_APP_ID,
@@ -83,38 +85,35 @@ pub async fn get_workshop_item(
         Err(_error) => return Err("Failed to get mod data.".to_string()),
     };
 
-    let steam_mod = mod_.response.mods.pop().unwrap();
+    let workshop_mod = mod_.response.mods.pop().unwrap();
+    Ok(workshop_mod)
+}
 
-    // TODO: Use include_bytes! here
-    let image = Reader::open("resources/img/no_image.png")
-        .unwrap()
-        .decode()
-        .unwrap();
-
+pub async fn build_barony_mod(
+    client: Client,
+    barony_dir: String,
+    workshop_data: SteamWorkshopMod,
+) -> BaronyMod {
+    let image = image::load_from_memory(DEFAULT_IMAGE).unwrap();
     let resized = resize(&image, APP_IMAGES_SIZE, APP_IMAGES_SIZE);
     let default_handle = to_handle(&resized);
 
-    let image_handle = if steam_mod.preview_url.is_empty() {
+    let image_handle = if workshop_data.preview_url.is_empty() {
         default_handle
     } else {
-        match download_image(client, steam_mod.preview_url.clone()).await {
+        match download_image(client, workshop_data.preview_url.clone()).await {
             Ok(handle) => handle,
             Err(_err) => default_handle,
         }
     };
 
-    let barony_mod = BaronyMod {
-        // TODO: To check if mod is download when building, one will have to have the barony's path
-        // in hands. Probably break this into two functions: download_from_workshop and
-        // build_barony_mod which are called from the update function
-        is_downloaded: false, //is_mod_downloaded(steam_mod.title.clone()),
-        workshop: steam_mod.clone(),
+    BaronyMod {
+        is_downloaded: is_mod_downloaded(&barony_dir, &workshop_data.title.clone()),
+        workshop: workshop_data,
         image_handle,
         download_button: button::State::new(),
         download_status: DownloadStatus::NotDownloaded,
-    };
-
-    Ok(barony_mod)
+    }
 }
 
 pub async fn download_image(client: Client, url: String) -> Result<Handle, Error> {

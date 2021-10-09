@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::data::{BaronyMod, SteamWorkshopTag};
+use crate::data::{BaronyMod, SteamWorkshopMod, SteamWorkshopTag};
 
 #[derive(Clone, Debug)]
 pub enum Message {
@@ -23,7 +23,8 @@ pub enum Message {
 
     // Application inner workings' events
     TotalModsNumber(u64),
-    ModFetched(BaronyMod),
+    ModFetched(SteamWorkshopMod),
+    ModBuilt(BaronyMod),
     DownloadMod(String),
     PreparingModDownload(String, String),
     ModDownloadReady(String, String),
