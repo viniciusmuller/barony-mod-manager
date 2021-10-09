@@ -16,6 +16,7 @@ pub enum Message {
     TagSelected(PickableTag),
     FilterSelected(Filter),
     SorterSelected(Sorter),
+    SortingStrategySelected(SortingStrategy),
     CloseRequested,
     LoadMods,
     ErrorHappened(String),
@@ -89,18 +90,16 @@ pub enum Sorter {
     VoteScore,
     Views,
     Size,
-    Subscribed,
     Updated,
     Created,
     None,
 }
 
 impl Sorter {
-    pub const ALL: [Sorter; 7] = [
+    pub const ALL: [Sorter; 6] = [
         Sorter::VoteScore,
         Sorter::Views,
         Sorter::Size,
-        Sorter::Subscribed,
         Sorter::Updated,
         Sorter::Created,
         Sorter::None,
@@ -116,7 +115,6 @@ impl Display for Sorter {
                 Sorter::VoteScore => "Vote score",
                 Sorter::Views => "Views",
                 Sorter::Size => "Size",
-                Sorter::Subscribed => "Subscribed",
                 Sorter::Updated => "Date updated",
                 Sorter::Created => "Date created",
                 Sorter::None => "Nothing",
@@ -188,5 +186,35 @@ impl Display for Filter {
 impl Default for Filter {
     fn default() -> Filter {
         Filter::None
+    }
+}
+
+/// Possible fields that can be used to sort the mods
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SortingStrategy {
+    Ascending,
+    Descending,
+}
+
+impl SortingStrategy {
+    pub const ALL: [SortingStrategy; 2] = [SortingStrategy::Descending, SortingStrategy::Ascending];
+}
+
+impl Display for SortingStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SortingStrategy::Ascending => "Ascending",
+                SortingStrategy::Descending => "Descending",
+            }
+        )
+    }
+}
+
+impl Default for SortingStrategy {
+    fn default() -> SortingStrategy {
+        SortingStrategy::Descending
     }
 }

@@ -6,7 +6,7 @@ use barony_mod_manager::{
     filesystem::{self, barony_dir_valid},
     steam_api::{get_total_mods, get_workshop_item},
     styling::{GeneralUiStyles, ModCardUiStyles},
-    widgets::{Filter, Message, PickableTag, Sorter},
+    widgets::{Filter, Message, PickableTag, Sorter, SortingStrategy},
 };
 use chrono::Datelike;
 use iced::{
@@ -45,6 +45,9 @@ struct BaronyModManager {
 
     tag_picklist: pick_list::State<PickableTag>,
     selected_tag: Option<PickableTag>,
+
+    sorting_strategy_picklist: pick_list::State<SortingStrategy>,
+    sorting_strategy: Option<SortingStrategy>,
 
     // Show only installed checkbox
     show_only_installed: bool,
@@ -113,6 +116,9 @@ impl Application for BaronyModManager {
             selected_sorter: Some(Sorter::default()),
             show_only_installed: false,
 
+            sorting_strategy_picklist: pick_list::State::default(),
+            sorting_strategy: Some(SortingStrategy::default()),
+
             loading_mods: false,
             tag_picklist: pick_list::State::default(),
             selected_tag: Some(PickableTag::default()),
@@ -154,6 +160,7 @@ impl Application for BaronyModManager {
                 self.api_key_input_hidden = new_value;
                 Command::none()
             }
+            // TODO: Remove
             Message::ToggleShowOnlyInstalled(new_value) => {
                 self.show_only_installed = new_value;
                 Command::none()
@@ -178,6 +185,10 @@ impl Application for BaronyModManager {
                     },
                 )
             })),
+            Message::SortingStrategySelected(new_strategy) => {
+                self.sorting_strategy = Some(new_strategy);
+                Command::none()
+            }
             Message::SorterSelected(new_sorter) => {
                 self.selected_sorter = Some(new_sorter);
                 Command::none()
@@ -432,6 +443,22 @@ impl Application for BaronyModManager {
         .text_size(20)
         .style(GeneralUiStyles);
 
+        let sorting_strategy_label = Text::new("Order:").color(Color::WHITE);
+        let sorting_strategy_picklist = PickList::new(
+            &mut self.sorting_strategy_picklist,
+            &SortingStrategy::ALL[..],
+            self.sorting_strategy.clone(),
+            Message::SortingStrategySelected,
+        )
+        .text_size(20)
+        .style(GeneralUiStyles);
+
+        let sorting_strategy = Row::new()
+            .spacing(10)
+            .align_items(Align::Center)
+            .push(sorting_strategy_label)
+            .push(sorting_strategy_picklist);
+
         let mut tags = self.tags.clone().into_iter().collect::<Vec<_>>();
         tags.push(PickableTag::None);
         tags.sort();
@@ -471,7 +498,8 @@ impl Application for BaronyModManager {
             .width(Length::Fill)
             .push(pick_list_full)
             .push(filter_pick_list_)
-            .push(tag_pick_list);
+            .push(tag_pick_list)
+            .push(sorting_strategy);
 
         let search_options = Row::new().push(search_options_).push(refresh_section);
 
@@ -526,7 +554,7 @@ impl Application for BaronyModManager {
 
             // TODO: This can be safely unwrapped here.
             mods_scrollable = if let Some(mods) = &mut self.mods {
-                // TODO: Filter mods here
+                // TODO: Don't sort/filter this literally every render
 
                 let download_filtered = if let Some(filter) = &self.selected_filter {
                     mods.into_iter()
@@ -558,10 +586,53 @@ impl Application for BaronyModManager {
                     download_filtered
                 };
 
+                let mut strings_filtered = if !self.query.is_empty() {
+                    let query = self.query.to_lowercase().clone();
+                    tags_filtered
+                        .into_iter()
+                        .filter(|mod_| {
+                            mod_.workshop.title.to_lowercase().contains(&query)
+                                || mod_.workshop.description.to_lowercase().contains(&query)
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    tags_filtered
+                };
+
+                if let Some(sorter) = &self.selected_sorter {
+                    match sorter {
+                        Sorter::None => (),
+                        other => strings_filtered.sort_unstable_by(|a, b| match other {
+                            Sorter::Size => {
+                                let file_size_1 = a.workshop.file_size.parse::<u32>().unwrap();
+                                let file_size_2 = b.workshop.file_size.parse::<u32>().unwrap();
+                                file_size_1.cmp(&file_size_2)
+                            }
+                            Sorter::Views => a.workshop.views.cmp(&b.workshop.views),
+                            Sorter::Created => {
+                                a.workshop.time_created.cmp(&b.workshop.time_created)
+                            }
+                            Sorter::Updated => {
+                                a.workshop.time_updated.cmp(&b.workshop.time_updated)
+                            }
+                            Sorter::VoteScore => a
+                                .workshop
+                                .vote_data
+                                .votes_up
+                                .cmp(&b.workshop.vote_data.votes_up),
+                            Sorter::None => panic!("Should never match"),
+                        }),
+                    };
+
+                    if let Some(SortingStrategy::Descending) = self.sorting_strategy {
+                        strings_filtered.reverse();
+                    }
+                }
+
                 // TODO: Return beautiful message if the resulting mods vector after
                 // filtering are empty
 
-                tags_filtered
+                strings_filtered
                     .into_iter()
                     .fold(mods_scrollable, |scroll, mod_| {
                         let mod_image = Image::new(mod_.image_handle.clone());
