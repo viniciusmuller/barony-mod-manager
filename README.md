@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="barony-mod-manager/resources/img/logo.png" />
+  <h1 align="center">Barony Mod Manager</h1>
+</p>
+
 # Table of contents
 
 - [Intro](#intro)
