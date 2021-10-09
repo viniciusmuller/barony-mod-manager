@@ -32,8 +32,15 @@
           xorg.libXi
         ];
 
+        projectPythonDependencies = with pkgs; [
+          python39
+          python39Packages.aiohttp
+        ];
+
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
+            projectPythonDependencies
+
             # Project
             rustc
             cargo
