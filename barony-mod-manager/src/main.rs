@@ -75,7 +75,7 @@ impl Application for BaronyModManager {
     type Flags = ();
 
     fn title(&self) -> String {
-        String::from("Barony Mod Manager")
+        String::from("Barony Mod Manager v0.2.0")
     }
 
     fn should_exit(&self) -> bool {
@@ -332,7 +332,7 @@ impl Application for BaronyModManager {
 
     fn view(&mut self) -> Element<Self::Message> {
         // ------------------ Header -----------------------
-        let app_name = Text::new("Barony Mod Manager")
+        let app_name = Text::new("Barony Mod Manager v0.2.0")
             .size(30)
             .width(Length::FillPortion(3))
             .color(iced::Color::WHITE);
