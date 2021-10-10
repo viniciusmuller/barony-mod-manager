@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{self, Display};
 
 use chrono::{DateTime, Utc};
@@ -12,12 +11,11 @@ use serde_with::TimestampSeconds;
 pub struct BaronyMod {
     pub workshop: SteamWorkshopMod,
     pub image_handle: Handle,
-    pub is_downloaded: bool, // Remove this field
     pub download_button: button::State,
     pub download_status: DownloadStatus,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DownloadStatus {
     Downloaded,
     NotDownloaded,
@@ -42,39 +40,17 @@ impl Display for DownloadStatus {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct SteamApiResponse<T> {
-    pub response: T,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct SteamWorkshopModResponse {
-    // pub total: u8,
-    #[serde(rename = "publishedfiledetails")]
-    // From all my tests, it always contains an array with a single mod, so it's
-    // probably safe to assume that it will always be like this :P
-    pub mods: Vec<SteamWorkshopMod>,
-}
-
-/// TODO: Document this
-#[derive(Deserialize, Debug, Clone)]
-pub struct SteamWorkshopTotal {
-    pub total: u64,
-}
-
 #[serde_with::serde_as]
 #[derive(Deserialize, Debug, Clone)]
 // TODO: Figure out about steam workshop dependencies and download mods' dependencies
 pub struct SteamWorkshopMod {
-    #[serde(rename = "publishedfileid")]
     pub id: String,
     pub title: String,
-    pub file_size: String,
+    pub file_size: u64,
     pub preview_url: String,
-    #[serde(rename = "file_description")]
     pub description: String,
-    pub tags: Vec<SteamWorkshopTag>,
-    pub vote_data: SteamWorkshopVoteData,
+    pub tags: Vec<String>,
+    pub votes: SteamWorkshopVoteData,
     pub views: u64,
     #[serde_as(as = "TimestampSeconds<String, Flexible>")]
     pub time_created: DateTime<Utc>,
@@ -82,22 +58,8 @@ pub struct SteamWorkshopMod {
     pub time_updated: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
-pub struct SteamWorkshopTag {
-    pub tag: String,
-    pub display_name: String,
-}
-
-impl PartialEq for SteamWorkshopTag {
-    fn eq(&self, other: &Self) -> bool {
-        self.tag == other.tag
-    }
-}
-impl Eq for SteamWorkshopTag {}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SteamWorkshopVoteData {
-    score: f64,
-    pub votes_up: u64,
-    pub votes_down: u64,
+    pub up: u64,
+    pub down: u64,
 }

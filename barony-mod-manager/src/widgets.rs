@@ -3,15 +3,13 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::data::{BaronyMod, SteamWorkshopMod, SteamWorkshopTag};
+use crate::data::{BaronyMod, SteamWorkshopMod};
 
 #[derive(Clone, Debug)]
 pub enum Message {
     // UI related events
-    ApiKeyInputChanged(String),
     ModSearchInputChanged(String),
     BaronyDirectoryPathChanged(String),
-    ToggleHiddenApiKeyInput(bool),
     ToggleShowOnlyInstalled(bool),
     TagSelected(PickableTag),
     FilterSelected(Filter),
@@ -22,8 +20,7 @@ pub enum Message {
     ErrorHappened(String),
 
     // Application inner workings' events
-    TotalModsNumber(u64),
-    ModFetched(SteamWorkshopMod),
+    ModsFetched(Vec<SteamWorkshopMod>),
     ModBuilt(BaronyMod),
     DownloadMod(String),
     PreparingModDownload(String, String),
@@ -37,7 +34,7 @@ pub enum Message {
 
 #[derive(Debug, Clone, Hash)]
 pub enum PickableTag {
-    Some(SteamWorkshopTag),
+    Some(String),
     None,
 }
 
@@ -47,7 +44,7 @@ impl Display for PickableTag {
             f,
             "{}",
             match self {
-                PickableTag::Some(tag) => tag.display_name.clone(),
+                PickableTag::Some(tag) => tag.clone(),
                 PickableTag::None => "None".to_string(),
             }
         )
@@ -77,7 +74,7 @@ impl PartialOrd for PickableTag {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(match self {
             PickableTag::Some(tag) => match other {
-                PickableTag::Some(other_tag) => tag.tag.cmp(&other_tag.tag),
+                PickableTag::Some(other_tag) => tag.cmp(&other_tag),
                 _ => Ordering::Less,
             },
             _ => Ordering::Less,

@@ -1,19 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::{self, Write},
-    path::Path,
-};
-
-// fn barony_default_dir() -> PathBuf {
-//     // TODO: Depends on the OS
-//     Path::new("~/.barony").to_owned()
-// }
+use std::{fs, io, path::Path};
 
 #[derive(Serialize, Deserialize)]
 pub struct SettingsPersistance {
     pub barony_directory_path: Option<String>,
-    pub steam_api_key: Option<String>,
 }
 
 pub fn persist_settings(settings: SettingsPersistance) {
@@ -28,13 +18,17 @@ pub fn persist_settings(settings: SettingsPersistance) {
 
 pub fn barony_dir_valid(dir: &String) -> bool {
     let barony_path = Path::new(dir);
-    barony_path.exists() && barony_path.is_dir()
+    let barony_mods_path = barony_path.join("mods/");
+
+    barony_path.exists()
+        && barony_path.is_dir()
+        && barony_mods_path.exists()
+        && barony_mods_path.is_dir()
 }
 
 pub fn load_persisted_settings() -> SettingsPersistance {
     let mut settings = SettingsPersistance {
         barony_directory_path: None,
-        steam_api_key: None,
     };
 
     if let Some(user_data_dir) = dirs::data_dir() {
@@ -82,8 +76,7 @@ pub fn write_mod_to_disk(
             None => continue,
         };
 
-        if (&*file.name()).ends_with('/') {
-            // println!("File {} extracted to \"{}\"", i, outpath.display());
+        if (file.name()).ends_with('/') {
             fs::create_dir_all(&outpath).unwrap();
         } else {
             if let Some(p) = outpath.parent() {

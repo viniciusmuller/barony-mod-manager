@@ -1,18 +1,18 @@
-use std::{collections::HashSet, vec};
+use std::{collections::HashSet, time::Duration, vec};
 
 use barony_mod_manager::{
     data::{BaronyMod, DownloadStatus},
     downloader_api::{check_status, download_mod, queue_download},
     filesystem::{self, barony_dir_valid},
-    steam_api::{build_barony_mod, get_total_mods, get_workshop_item},
+    steam_api::{build_barony_mod, get_barony_workshop_mods},
     styling::{GeneralUiStyles, ModCardUiStyles},
     widgets::{Filter, Message, PickableTag, Sorter, SortingStrategy},
 };
 use chrono::Datelike;
 use iced::{
-    button, executor, pick_list, scrollable, text_input, Align, Application, Button, Checkbox,
-    Clipboard, Color, Column, Command, Container, Element, Image, Length, PickList, Row,
-    Scrollable, Settings, Subscription, Text, TextInput,
+    button, executor, pick_list, scrollable, text_input, Align, Application, Button, Clipboard,
+    Color, Column, Command, Container, Element, Image, Length, PickList, Row, Scrollable, Settings,
+    Subscription, Text, TextInput,
 };
 use iced_native::Event;
 use reqwest::Client;
@@ -30,10 +30,7 @@ struct BaronyModManager {
     // barony_dir: Option<PathBuf>,
     mods: Option<Vec<BaronyMod>>,
     http_client: Client,
-    // Api key input
-    steam_api_key: String,
-    api_key_input: text_input::State,
-    api_key_input_hidden: bool,
+
     // Mod querying
     mod_search_input: text_input::State,
     query: String,
@@ -100,14 +97,10 @@ impl Application for BaronyModManager {
         let barony_dir = persisted_settings.barony_directory_path.unwrap_or_default();
 
         let initial_state = BaronyModManager {
-            // barony_dir: None,
             mods: None,
+
             http_client: Client::new(),
             tags: HashSet::new(),
-            // Steam API key
-            api_key_input: text_input::State::default(),
-            api_key_input_hidden: true,
-            steam_api_key: persisted_settings.steam_api_key.unwrap_or_default(),
             // Mod querying
             mod_search_input: text_input::State::default(),
             query: "".to_string(),
@@ -138,8 +131,11 @@ impl Application for BaronyModManager {
             error_message: None,
         };
 
-        // TODO: Maybe already fetch mods here if steam api key was loaded successfully
-        (initial_state, Command::none())
+        let duration = Duration::from_millis(1);
+        (
+            initial_state,
+            Command::perform(async_std::task::sleep(duration), |_| Message::LoadMods),
+        )
     }
 
     fn update(
@@ -148,16 +144,9 @@ impl Application for BaronyModManager {
         _clipboard: &mut Clipboard,
     ) -> Command<Self::Message> {
         match message {
-            Message::ApiKeyInputChanged(new_value) => {
-                self.steam_api_key = new_value;
-                Command::none()
-            }
             Message::ModSearchInputChanged(new_value) => {
                 self.query = new_value;
-                Command::none()
-            }
-            Message::ToggleHiddenApiKeyInput(new_value) => {
-                self.api_key_input_hidden = new_value;
+                // sort_and_filter_mods(self);
                 Command::none()
             }
             // TODO: Remove
@@ -169,36 +158,31 @@ impl Application for BaronyModManager {
                 self.mods = None;
                 self.loading_mods = true;
                 Command::perform(
-                    get_total_mods(self.http_client.clone(), self.steam_api_key.clone()),
+                    get_barony_workshop_mods(self.http_client.clone()),
                     |result| match result {
-                        Ok(number) => Message::TotalModsNumber(number),
-                        Err(message) => Message::ErrorHappened(message),
+                        Ok(workshop_mods) => Message::ModsFetched(workshop_mods),
+                        Err(message) => Message::ErrorHappened(message.to_string()),
                     },
                 )
             }
-            Message::TotalModsNumber(total) => iced::Command::batch((1..=total).map(|n| {
-                Command::perform(
-                    get_workshop_item(self.http_client.clone(), self.steam_api_key.clone(), n),
-                    |result| match result {
-                        Ok(mod_response) => Message::ModFetched(mod_response),
-                        Err(message) => Message::ErrorHappened(message),
-                    },
-                )
-            })),
             Message::SortingStrategySelected(new_strategy) => {
                 self.sorting_strategy = Some(new_strategy);
+                // sort_and_filter_mods(self);
                 Command::none()
             }
             Message::SorterSelected(new_sorter) => {
                 self.selected_sorter = Some(new_sorter);
+                sort_mods(self);
                 Command::none()
             }
             Message::TagSelected(tag) => {
                 self.selected_tag = Some(tag);
+                // sort_and_filter_mods(self);
                 Command::none()
             }
             Message::FilterSelected(filter) => {
                 self.selected_filter = Some(filter);
+                // sort_and_filter_mods(self);
                 Command::none()
             }
             Message::BaronyDirectoryPathChanged(new_value) => {
@@ -210,25 +194,28 @@ impl Application for BaronyModManager {
                 // Cleanup
                 filesystem::persist_settings(filesystem::SettingsPersistance {
                     barony_directory_path: Some(self.barony_dir_str.clone()),
-                    steam_api_key: Some(self.steam_api_key.clone()),
                 });
                 self.should_exit = true;
                 Command::none()
             }
-            Message::ModFetched(steam_workshop_mod) => {
-                for tag in &steam_workshop_mod.tags {
-                    let pickable = PickableTag::Some(tag.clone());
-                    self.tags.insert(pickable);
+            Message::ModsFetched(steam_workshop_mods) => {
+                for mod_ in &steam_workshop_mods {
+                    for tag in &mod_.tags {
+                        let pickable = PickableTag::Some(tag.clone());
+                        self.tags.insert(pickable);
+                    }
                 }
 
-                Command::perform(
-                    build_barony_mod(
-                        self.http_client.clone(),
-                        self.barony_dir_str.clone(),
-                        steam_workshop_mod,
-                    ),
-                    Message::ModBuilt,
-                )
+                Command::batch(steam_workshop_mods.into_iter().map(|mod_| {
+                    Command::perform(
+                        build_barony_mod(
+                            self.http_client.clone(),
+                            self.barony_dir_str.clone(),
+                            mod_,
+                        ),
+                        Message::ModBuilt,
+                    )
+                }))
             }
             Message::ModBuilt(barony_mod) => {
                 self.loading_mods = false;
@@ -313,7 +300,6 @@ impl Application for BaronyModManager {
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
-                selected_mod.is_downloaded = true;
                 selected_mod.download_status = DownloadStatus::Downloaded;
                 Command::none()
             }
@@ -334,7 +320,6 @@ impl Application for BaronyModManager {
                 .unwrap();
 
                 selected_mod.download_status = DownloadStatus::NotDownloaded;
-                selected_mod.is_downloaded = false;
                 Command::none()
             }
             Message::ErrorHappened(msg) => {
@@ -366,36 +351,6 @@ impl Application for BaronyModManager {
         let header = Row::new().push(app_name).push(mod_search_input);
 
         // ------------------ Bottom inputs -----------------------
-        let toggle_api_key_input_hidden = Checkbox::new(
-            self.api_key_input_hidden,
-            "Hide Steam API key",
-            Message::ToggleHiddenApiKeyInput,
-        )
-        .size(20)
-        .style(GeneralUiStyles)
-        .text_size(20);
-
-        let mut api_key_input = TextInput::new(
-            &mut self.api_key_input,
-            "Steam API Key",
-            &self.steam_api_key,
-            Message::ApiKeyInputChanged,
-        )
-        .padding(5)
-        .style(GeneralUiStyles)
-        .size(20);
-
-        api_key_input = if self.api_key_input_hidden {
-            api_key_input.password()
-        } else {
-            api_key_input
-        };
-
-        let api_key_section = Column::new()
-            .spacing(15)
-            .width(Length::FillPortion(2))
-            .push(toggle_api_key_input_hidden)
-            .push(api_key_input);
 
         let path_label_message = format!(
             "Barony directory {}",
@@ -419,12 +374,11 @@ impl Application for BaronyModManager {
 
         let barony_path_section = Column::new()
             .spacing(10)
-            .width(Length::FillPortion(2))
+            .max_width(600)
             .push(barony_path_label)
             .push(barony_path_input);
 
         let bottom_inputs = Row::new()
-            .push(api_key_section)
             .push(barony_path_section)
             .align_items(Align::End)
             .spacing(100);
@@ -516,20 +470,7 @@ impl Application for BaronyModManager {
         let search_options = Row::new().push(search_options_).push(refresh_section);
 
         // ---------------- Mods container ------------------
-        let main_section = if self.steam_api_key.is_empty() {
-            let text = Text::new(
-                "Add your steam API key to the bottom left input and click the \"Refresh\" button.",
-            )
-            .color(Color::WHITE)
-            .size(35);
-
-            // TODO: Create function for those repeated aligned container creations
-            Container::new(text)
-                .align_x(Align::Center)
-                .align_y(Align::Center)
-                .width(Length::Fill)
-                .height(Length::Fill)
-        } else if let Some(error) = &self.error_message {
+        let main_section = if let Some(error) = &self.error_message {
             let text = Text::new(error).size(35).color(Color::WHITE);
 
             Container::new(text)
@@ -558,21 +499,23 @@ impl Application for BaronyModManager {
                 .align_x(Align::Center)
                 .align_y(Align::Center)
         } else {
-            let mut mods_scrollable = Scrollable::new(&mut self.mods_scrollable)
-                .padding(15)
-                .spacing(15)
-                .width(Length::Fill)
-                .height(Length::Fill);
+            let mods_scrollable = if let Some(mods) = &mut self.mods {
+                let mods_scrollable = Scrollable::new(&mut self.mods_scrollable)
+                    .padding(15)
+                    .spacing(15)
+                    .width(Length::Fill)
+                    .height(Length::Fill);
 
-            // TODO: This can be safely unwrapped here.
-            mods_scrollable = if let Some(mods) = &mut self.mods {
-                // TODO: Don't sort/filter this literally every render
-
+                // TODO: Don't filter mods every render
                 let download_filtered = if let Some(filter) = &self.selected_filter {
                     mods.into_iter()
                         .filter(|mod_| match filter {
-                            Filter::Downloaded => mod_.is_downloaded,
-                            Filter::NonDownloaded => !mod_.is_downloaded,
+                            Filter::Downloaded => {
+                                mod_.download_status == DownloadStatus::Downloaded
+                            }
+                            Filter::NonDownloaded => {
+                                mod_.download_status != DownloadStatus::Downloaded
+                            }
                             Filter::None => true,
                         })
                         .collect::<Vec<_>>()
@@ -589,7 +532,7 @@ impl Application for BaronyModManager {
                                     .clone()
                                     .tags
                                     .into_iter()
-                                    .any(|mod_tag| mod_tag.tag == tag.tag)
+                                    .any(|mod_tag| mod_tag == *tag)
                             })
                             .collect::<Vec<_>>(),
                         PickableTag::None => download_filtered,
@@ -598,7 +541,8 @@ impl Application for BaronyModManager {
                     download_filtered
                 };
 
-                let mut strings_filtered = if !self.query.is_empty() {
+                // Filter by user search
+                let mods_filtered = if !self.query.is_empty() {
                     let query = self.query.to_lowercase().clone();
                     tags_filtered
                         .into_iter()
@@ -611,40 +555,7 @@ impl Application for BaronyModManager {
                     tags_filtered
                 };
 
-                if let Some(sorter) = &self.selected_sorter {
-                    match sorter {
-                        Sorter::None => (),
-                        other => strings_filtered.sort_unstable_by(|a, b| match other {
-                            Sorter::Size => {
-                                let file_size_1 = a.workshop.file_size.parse::<u32>().unwrap();
-                                let file_size_2 = b.workshop.file_size.parse::<u32>().unwrap();
-                                file_size_1.cmp(&file_size_2)
-                            }
-                            Sorter::Views => a.workshop.views.cmp(&b.workshop.views),
-                            Sorter::Created => {
-                                a.workshop.time_created.cmp(&b.workshop.time_created)
-                            }
-                            Sorter::Updated => {
-                                a.workshop.time_updated.cmp(&b.workshop.time_updated)
-                            }
-                            Sorter::VoteScore => a
-                                .workshop
-                                .vote_data
-                                .votes_up
-                                .cmp(&b.workshop.vote_data.votes_up),
-                            Sorter::None => panic!("Should never match"),
-                        }),
-                    };
-
-                    if let Some(SortingStrategy::Descending) = self.sorting_strategy {
-                        strings_filtered.reverse();
-                    }
-                }
-
-                // TODO: Return beautiful message if the resulting mods vector after
-                // filtering are empty
-
-                strings_filtered
+                mods_filtered
                     .into_iter()
                     .fold(mods_scrollable, |scroll, mod_| {
                         let mod_image = Image::new(mod_.image_handle.clone());
@@ -652,12 +563,11 @@ impl Application for BaronyModManager {
                         let views_label = Text::new(format!("Views: {}", mod_.workshop.views))
                             .color(Color::WHITE);
 
-                        let votes_up_label =
-                            Text::new(format!("Up: {}", mod_.workshop.vote_data.votes_up))
-                                .color(Color::WHITE);
+                        let votes_up_label = Text::new(format!("Up: {}", mod_.workshop.votes.up))
+                            .color(Color::WHITE);
 
                         let votes_down_label =
-                            Text::new(format!("Down: {}", mod_.workshop.vote_data.votes_down))
+                            Text::new(format!("Down: {}", mod_.workshop.votes.down))
                                 .color(Color::WHITE);
 
                         let votes_row = Row::new()
@@ -682,23 +592,31 @@ impl Application for BaronyModManager {
                         ))
                         .color(Color::WHITE);
 
-                        let download_or_remove_button = if mod_.is_downloaded {
-                            Button::new(&mut mod_.download_button, Text::new("Remove"))
+                        let download_or_remove_button = match mod_.download_status {
+                            // An error occured or the mod is not downloaded, can try again
+                            DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
+                                Button::new(&mut mod_.download_button, Text::new("Download"))
+                                    .style(GeneralUiStyles)
+                                    .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
+                            }
+                            DownloadStatus::Downloading | DownloadStatus::Preparing => {
+                                Button::new(&mut mod_.download_button, Text::new("Downloading"))
+                                    .style(GeneralUiStyles)
+                            }
+                            _ => Button::new(&mut mod_.download_button, Text::new("Remove"))
                                 .style(GeneralUiStyles)
-                                .on_press(Message::RemoveMod(mod_.workshop.id.clone()))
-                        } else {
-                            Button::new(&mut mod_.download_button, Text::new("Download"))
-                                .style(GeneralUiStyles)
-                                .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
+                                .on_press(Message::RemoveMod(mod_.workshop.id.clone())),
                         };
 
                         let buttons_row = Column::new().spacing(10).push(download_or_remove_button);
 
                         // TODO: Don't unwrap this here (if it crashes will explode the program)
-                        let bytes_size = mod_.workshop.file_size.parse::<f64>().unwrap();
-                        let size_text =
-                            Text::new(format!("Size: {:.2}MB", bytes_size / 1024.0 / 1024.0))
-                                .color(Color::WHITE);
+                        let bytes_size = mod_.workshop.file_size;
+                        let size_text = Text::new(format!(
+                            "Size: {:.2}MB",
+                            (bytes_size as f64) / 1024.0 / 1024.0
+                        ))
+                        .color(Color::WHITE);
 
                         let size_col = Column::new().push(size_text);
 
@@ -760,7 +678,11 @@ impl Application for BaronyModManager {
                         scroll.push(container)
                     })
             } else {
-                mods_scrollable
+                Scrollable::new(&mut self.mods_scrollable)
+                    .padding(15)
+                    .spacing(15)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
             };
 
             Container::new(mods_scrollable).height(Length::Fill)
@@ -780,5 +702,27 @@ impl Application for BaronyModManager {
             .padding(20)
             .style(GeneralUiStyles)
             .into()
+    }
+}
+
+fn sort_mods(state: &mut BaronyModManager) {
+    if let Some(sorter) = &state.selected_sorter {
+        if let Some(mods) = &mut state.mods {
+            match sorter {
+                Sorter::None => (),
+                other => mods.sort_unstable_by(|a, b| match other {
+                    Sorter::Size => a.workshop.file_size.cmp(&b.workshop.file_size),
+                    Sorter::Views => a.workshop.views.cmp(&b.workshop.views),
+                    Sorter::Created => a.workshop.time_created.cmp(&b.workshop.time_created),
+                    Sorter::Updated => a.workshop.time_updated.cmp(&b.workshop.time_updated),
+                    Sorter::VoteScore => a.workshop.votes.up.cmp(&b.workshop.votes.up),
+                    Sorter::None => panic!("Should never match"),
+                }),
+            };
+
+            if let Some(SortingStrategy::Descending) = state.sorting_strategy {
+                mods.reverse();
+            }
+        }
     }
 }
