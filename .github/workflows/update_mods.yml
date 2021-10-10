@@ -24,7 +24,7 @@ jobs:
         env:
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
 
-       - name: Commit change
+      - name: Commit change
          run: |
            git config --global user.name 'Vinícius Müller'
            git config --global user.email 'arcticlimer@users.noreply.github.com'
