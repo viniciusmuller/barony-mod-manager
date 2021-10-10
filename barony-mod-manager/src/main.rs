@@ -4,22 +4,29 @@ use barony_mod_manager::{
     data::{BaronyMod, DownloadStatus},
     downloader_api::{check_status, download_mod, queue_download},
     filesystem::{self, barony_dir_valid},
+    images::build_app_logo,
     steam_api::{build_barony_mod, get_barony_workshop_mods},
     styling::{GeneralUiStyles, ModCardUiStyles},
     widgets::{Filter, Message, PickableTag, Sorter, SortingStrategy},
 };
 use chrono::Datelike;
 use iced::{
-    button, executor, pick_list, scrollable, text_input, Align, Application, Button, Clipboard,
-    Color, Column, Command, Container, Element, Image, Length, PickList, Row, Scrollable, Settings,
-    Subscription, Text, TextInput,
+    button, executor, pick_list, scrollable, text_input, window, Align, Application, Button,
+    Clipboard, Color, Column, Command, Container, Element, Image, Length, PickList, Row,
+    Scrollable, Settings, Subscription, Text, TextInput,
 };
 use iced_native::Event;
 use reqwest::Client;
 
 fn main() -> iced::Result {
-    BaronyModManager::run(Settings {
+    let icon = build_app_logo().unwrap();
+
+    BaronyModManager::run(iced::Settings {
         exit_on_close_request: false,
+        window: window::Settings {
+            icon: Some(icon),
+            ..window::Settings::default()
+        },
         ..Settings::default()
     })
 }
@@ -27,7 +34,6 @@ fn main() -> iced::Result {
 /// App state
 struct BaronyModManager {
     // Core data
-    // barony_dir: Option<PathBuf>,
     mods: Option<Vec<BaronyMod>>,
     http_client: Client,
 
@@ -46,8 +52,6 @@ struct BaronyModManager {
     sorting_strategy_picklist: pick_list::State<SortingStrategy>,
     sorting_strategy: Option<SortingStrategy>,
 
-    // Show only installed checkbox
-    show_only_installed: bool,
     loading_mods: bool,
 
     // Barony dir input
@@ -66,8 +70,6 @@ struct BaronyModManager {
     should_exit: bool,
     error_message: Option<String>,
 }
-
-// TODO: Create a workshop items `Tag` picklist
 
 impl Application for BaronyModManager {
     type Executor = executor::Default;
@@ -107,7 +109,6 @@ impl Application for BaronyModManager {
             // Pick list
             sorter_picklist: pick_list::State::default(),
             selected_sorter: Some(Sorter::default()),
-            show_only_installed: false,
 
             sorting_strategy_picklist: pick_list::State::default(),
             sorting_strategy: Some(SortingStrategy::default()),
@@ -146,12 +147,6 @@ impl Application for BaronyModManager {
         match message {
             Message::ModSearchInputChanged(new_value) => {
                 self.query = new_value;
-                // sort_and_filter_mods(self);
-                Command::none()
-            }
-            // TODO: Remove
-            Message::ToggleShowOnlyInstalled(new_value) => {
-                self.show_only_installed = new_value;
                 Command::none()
             }
             Message::LoadMods => {
@@ -268,8 +263,9 @@ impl Application for BaronyModManager {
 
                 selected_mod.download_status = DownloadStatus::Downloading;
 
-                // TODO: What are the suitable ways of passing thing to async closures without
-                // having to .clone() .clone() .clone()?
+                // TODO: Maybe try to use less clones here, but since it's a function
+                // that will run asynchronously, I'm not sure if it's possible without
+                // huge pain
                 let barony_dir = self.barony_dir_str.clone();
                 let mod_title = selected_mod.workshop.title.clone();
 
@@ -328,6 +324,7 @@ impl Application for BaronyModManager {
         }
     }
 
+    // TODO: Clean this view
     fn view(&mut self) -> Element<Self::Message> {
         // ------------------ Header -----------------------
         let app_name = Text::new("Barony Mod Manager v0.2.0")

@@ -10,7 +10,6 @@ pub enum Message {
     // UI related events
     ModSearchInputChanged(String),
     BaronyDirectoryPathChanged(String),
-    ToggleShowOnlyInstalled(bool),
     TagSelected(PickableTag),
     FilterSelected(Filter),
     SorterSelected(Sorter),

@@ -18,3 +18,6 @@ dirs = "4.0"
 image = "0.23.14"
 zip = "0.5"
 regex = "1"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
