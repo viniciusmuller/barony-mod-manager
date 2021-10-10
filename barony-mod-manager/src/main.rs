@@ -167,7 +167,7 @@ impl Application for BaronyModManager {
             }
             Message::SortingStrategySelected(new_strategy) => {
                 self.sorting_strategy = Some(new_strategy);
-                // sort_and_filter_mods(self);
+                sort_mods(self);
                 Command::none()
             }
             Message::SorterSelected(new_sorter) => {
@@ -177,12 +177,10 @@ impl Application for BaronyModManager {
             }
             Message::TagSelected(tag) => {
                 self.selected_tag = Some(tag);
-                // sort_and_filter_mods(self);
                 Command::none()
             }
             Message::FilterSelected(filter) => {
                 self.selected_filter = Some(filter);
-                // sort_and_filter_mods(self);
                 Command::none()
             }
             Message::BaronyDirectoryPathChanged(new_value) => {
