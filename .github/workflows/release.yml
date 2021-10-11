@@ -1,6 +1,6 @@
 name: Create release
 
-on: 
+on:
   push:
     tags:
       - 'v[0-9]+.*'
@@ -37,7 +37,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: barony-mod-manager/target/release/barony-mod-manager_amd64
-          body_path: ./CHANGELOG.md
+          body: For more information, read the [changelog](https://github.com/arcticlimer/barony-mod-manager/blob/master/CHANGELOG.md).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -68,8 +68,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: target/release/barony-mod-manager.exe
-          body_path: ./CHANGELOG.md
+          files: barony-mod-manager/target/release/barony-mod-manager.exe
+          body: For more information, read the [changelog](https://github.com/arcticlimer/barony-mod-manager/blob/master/CHANGELOG.md).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -103,7 +103,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: target/release/barony-mod-manager_darwin
-          body_path: ./CHANGELOG.md
+          files: barony-mod-manager/target/release/barony-mod-manager_darwin
+          body: For more information, read the [changelog](https://github.com/arcticlimer/barony-mod-manager/blob/master/CHANGELOG.md).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

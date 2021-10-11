@@ -9,9 +9,10 @@
 
 - [Intro](#intro)
 - [Getting Started](#getting-started)
-  - [Building the Project](#building-the-project)
+  - [Downloading](#downloading)
   - [Using the Mod Manager](#using-the-mod-manager)
   - [Activating Mods](#activating-mods)
+  - [Building the Project from Source](#building-the-project-from-source)
 - [Contributing](#contributing)
 - [TODO](#todo)
 
@@ -25,19 +26,11 @@ or the Steam, Epic Games, or GOG version of the game.
 
 # Getting Started
 
-## Building the Project
-Currently there are no built releases, so if one wants to build the project he
-needs:
-
-### On Windows
-- [Install Rust](https://doc.rust-lang.org/book/ch01-01-installation.html#installing-rustup-on-windows)
-- Download the project, enter the `barony-mod-manager` folder and run `cargo
-    build --release`.
-
-### On Linux (Nix)
-On Linux using [Nix](https://nixos.org/download.html), just clone the project and enter the development environment
-with `nix develop`. Then you can just run `cargo build --release` and use the
-software. There are no packages defined inside the flake yet.
+## Downloading
+The latest project release can be found [here](https://github.com/arcticlimer/barony-mod-manager/releases/). Scroll to the bottom and select the appropriate version for your system.
+- For Windows: `barony-mod-manager.exe`
+- For GNU/Linux: `barony-mod-manager_amd64`
+- For MacOS: `barony-mod-manager_darwin`
 
 ## Using the Mod Manager
 After building you can use the search input and the filters to match exactly what
@@ -53,6 +46,20 @@ activate or activate the mods you've downloaded:
     through the mod manager
 - `load/unload` the mods that you want to
 - Click `start modded game` and be happy!
+
+## Building the Project from Source
+In order to build the project, one needs:
+
+### On Windows
+- [Install Rust](https://doc.rust-lang.org/book/ch01-01-installation.html#installing-rustup-on-windows)
+- Download the project, enter the `barony-mod-manager` folder and run `cargo
+    build --release`.
+
+### On Linux (Nix)
+On Linux using [Nix](https://nixos.org/download.html), just clone the project
+and enter the development environment with `nix develop`. Then you can just run
+`cargo build --release` and use the software. There are no packages defined
+inside the flake yet.
 
 # Contributing
 If you find any problems or bugs when using the program, feel free to report

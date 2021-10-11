@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.3.2] - 2021-10-11
+
+### Fixed
+- Fix bug where only Linux releases where shipped into the GitHub releases.
+
 ## [0.3.1] - 2021-10-11
 
 ### Added
