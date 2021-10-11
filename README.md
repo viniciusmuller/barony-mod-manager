@@ -9,11 +9,11 @@
 
 - [Intro](#intro)
 - [Getting Started](#getting-started)
-  * [Building the Project](#building-the-project)
-  * [Using the Mod Manager](#using-the-mod-manager)
-  * [Activating Mods](#activating-mods)
+  - [Building the Project](#building-the-project)
+  - [Using the Mod Manager](#using-the-mod-manager)
+  - [Activating Mods](#activating-mods)
+- [Contributing](#contributing)
 - [TODO](#todo)
-
 
 # Intro
 This project is a work-in-progress cross-platform mod manager for the game
@@ -54,7 +54,11 @@ activate or activate the mods you've downloaded:
 - `load/unload` the mods that you want to
 - Click `start modded game` and be happy!
 
-# TODO:
+# Contributing
+If you find any problems or bugs when using the program, feel free to report
+them in the `Issues` section or even send a `Pull Request` fixing it.
+
+# TODO
 - Handle mods which depends on other mods
 - A simple table-like mod view
 - Modpack support

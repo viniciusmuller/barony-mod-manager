@@ -1,8 +1,9 @@
 name: Create release
 
-on: [push]
-    # tags:
-    #   - 'v[0-9]+.*'
+on: 
+  push:
+    tags:
+      - 'v[0-9]+.*'
 
 jobs:
   build-linux:
@@ -32,13 +33,13 @@ jobs:
           strip target/release/barony-mod-manager
           mv target/release/barony-mod-manager target/release/barony-mod-manager_amd64
 
-      # - name: Release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       barony-mod-manager/target/release/barony-mod-manager_amd64
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: barony-mod-manager/target/release/barony-mod-manager_amd64
+          body_path: ./CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
     runs-on: windows-latest
@@ -64,12 +65,13 @@ jobs:
         with:
           working-directory: ./barony-mod-manager
 
-      # - name: Release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: target/release/barony-mod-manager.exe
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/release/barony-mod-manager.exe
+          body_path: ./CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-mac:
     runs-on: macos-latest
@@ -98,10 +100,10 @@ jobs:
           strip target/release/barony-mod-manager
           mv target/release/barony-mod-manager target/release/barony-mod-manager_darwin
 
-      # - name: Release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       target/release/PROJECT_NAME_darwin
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/release/barony-mod-manager_darwin
+          body_path: ./CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
