@@ -325,7 +325,6 @@ impl Application for BaronyModManager {
                 self.error_message = Some(format!("An error occurred: {}", msg));
                 Command::none()
             }
-            Message::NoOp => Command::none(),
         }
     }
 

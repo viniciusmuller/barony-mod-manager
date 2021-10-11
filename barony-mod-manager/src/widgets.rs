@@ -23,9 +23,6 @@ pub enum Message {
     ModDownloadReady(String, String),
     ModDownloaded(String),
     RemoveMod(String),
-
-    // Misc
-    NoOp,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
