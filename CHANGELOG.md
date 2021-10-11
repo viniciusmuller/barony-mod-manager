@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - The app window and executable now have icons.
+- The download buttons are now colored according to their statuses.
+- An user can now filter mods that are still being downloaded.
 
 ### Fixes
 - Fix bug where sort order was not changing when user selected a different sort strategy.

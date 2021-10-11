@@ -154,3 +154,92 @@ impl container::StyleSheet for ModCardUiStyles {
         }
     }
 }
+
+pub struct DownloadModButton;
+
+impl button::StyleSheet for DownloadModButton {
+    fn active(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(23, 170, 23).into()),
+            text_color: Color::from_rgb8(210, 210, 210),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(35, 35, 35),
+            ..button::Style::default()
+        }
+    }
+
+    fn hovered(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(27, 180, 27).into()),
+            text_color: Color::from_rgb8(230, 230, 230),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(45, 45, 45),
+            ..button::Style::default()
+        }
+    }
+
+    fn pressed(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(20, 200, 20).into()),
+            text_color: Color::from_rgb8(210, 210, 210),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(45, 45, 45),
+            ..button::Style::default()
+        }
+    }
+}
+
+pub struct DownloadingModButton;
+
+impl button::StyleSheet for DownloadingModButton {
+    fn active(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(87, 183, 235).into()),
+            text_color: Color::WHITE,
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(35, 35, 35),
+            ..button::Style::default()
+        }
+    }
+}
+
+pub struct RemoveModButton;
+
+impl button::StyleSheet for RemoveModButton {
+    fn active(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(170, 23, 23).into()),
+            text_color: Color::from_rgb8(210, 210, 210),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(35, 35, 35),
+            ..button::Style::default()
+        }
+    }
+
+    fn hovered(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(180, 27, 27).into()),
+            text_color: Color::from_rgb8(230, 230, 230),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(45, 45, 45),
+            ..button::Style::default()
+        }
+    }
+
+    fn pressed(&self) -> button::Style {
+        button::Style {
+            background: Some(Color::from_rgb8(200, 20, 20).into()),
+            text_color: Color::from_rgb8(210, 210, 210),
+            border_width: 1.0,
+            border_radius: 1.0,
+            border_color: Color::from_rgb8(45, 45, 45),
+            ..button::Style::default()
+        }
+    }
+}

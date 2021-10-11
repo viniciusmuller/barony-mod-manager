@@ -131,11 +131,17 @@ impl Default for ViewStyle {
 pub enum Filter {
     Downloaded,
     NonDownloaded,
+    Downloading,
     None,
 }
 
 impl Filter {
-    pub const ALL: [Filter; 3] = [Filter::Downloaded, Filter::NonDownloaded, Filter::None];
+    pub const ALL: [Filter; 4] = [
+        Filter::Downloading,
+        Filter::Downloaded,
+        Filter::NonDownloaded,
+        Filter::None,
+    ];
 }
 
 impl Display for Filter {
@@ -146,6 +152,7 @@ impl Display for Filter {
             match self {
                 Filter::Downloaded => "Downloaded",
                 Filter::NonDownloaded => "Non Downloaded",
+                Filter::Downloading => "Downloading",
                 Filter::None => "None",
             }
         )

@@ -6,7 +6,9 @@ use barony_mod_manager::{
     filesystem::{self, barony_dir_valid},
     images::build_app_logo,
     steam_api::{build_barony_mod, get_barony_workshop_mods},
-    styling::{GeneralUiStyles, ModCardUiStyles},
+    styling::{
+        DownloadModButton, DownloadingModButton, GeneralUiStyles, ModCardUiStyles, RemoveModButton,
+    },
     widgets::{Filter, Message, PickableTag, Sorter, SortingStrategy},
 };
 use chrono::Datelike;
@@ -509,7 +511,11 @@ impl Application for BaronyModManager {
                                 mod_.download_status == DownloadStatus::Downloaded
                             }
                             Filter::NonDownloaded => {
-                                mod_.download_status != DownloadStatus::Downloaded
+                                mod_.download_status == DownloadStatus::NotDownloaded
+                            }
+                            Filter::Downloading => {
+                                mod_.download_status == DownloadStatus::Downloading
+                                    || mod_.download_status == DownloadStatus::Preparing
                             }
                             Filter::None => true,
                         })
@@ -591,15 +597,15 @@ impl Application for BaronyModManager {
                             // An error occured or the mod is not downloaded, can try again
                             DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
                                 Button::new(&mut mod_.download_button, Text::new("Download"))
-                                    .style(GeneralUiStyles)
+                                    .style(DownloadModButton)
                                     .on_press(Message::DownloadMod(mod_.workshop.id.clone()))
                             }
                             DownloadStatus::Downloading | DownloadStatus::Preparing => {
                                 Button::new(&mut mod_.download_button, Text::new("Downloading"))
-                                    .style(GeneralUiStyles)
+                                    .style(DownloadingModButton)
                             }
                             _ => Button::new(&mut mod_.download_button, Text::new("Remove"))
-                                .style(GeneralUiStyles)
+                                .style(RemoveModButton)
                                 .on_press(Message::RemoveMod(mod_.workshop.id.clone())),
                         };
 
