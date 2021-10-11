@@ -28,11 +28,16 @@ or the Steam, Epic Games, or GOG version of the game.
 ## Building the Project
 Currently there are no built releases, so if one wants to build the project he
 needs:
-- On Windows, download the project and the rust compiler + cargo, then just
-    running `cargo build --release` should build the project.
-- On Linux using Nix, just clone the project and enter the development
-    environment with `nix develop`. There are no packages defined inside the
-    flake yet.
+
+### On Windows
+- [Install Rust](https://doc.rust-lang.org/book/ch01-01-installation.html#installing-rustup-on-windows)
+- Download the project, enter the `barony-mod-manager` folder and run `cargo
+    build --release`.
+
+### On Linux (Nix)
+On Linux using [Nix](https://nixos.org/download.html), just clone the project and enter the development environment
+with `nix develop`. Then you can just run `cargo build --release` and use the
+software. There are no packages defined inside the flake yet.
 
 ## Using the Mod Manager
 After building you can use the search input and the filters to match exactly what

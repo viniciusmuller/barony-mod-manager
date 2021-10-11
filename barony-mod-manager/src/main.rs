@@ -23,6 +23,8 @@ use iced::{
 use iced_native::Event;
 use reqwest::Client;
 
+static VERSION: &str = "v0.3.0";
+
 fn main() -> iced::Result {
     let icon = build_app_logo().unwrap();
 
@@ -82,7 +84,7 @@ impl Application for BaronyModManager {
     type Flags = ();
 
     fn title(&self) -> String {
-        String::from("Barony Mod Manager v0.2.0")
+        format!("Barony Mod Manager {}", VERSION)
     }
 
     fn should_exit(&self) -> bool {
@@ -331,7 +333,7 @@ impl Application for BaronyModManager {
     // TODO: Clean this view
     fn view(&mut self) -> Element<Self::Message> {
         // ------------------ Header -----------------------
-        let app_name = Text::new("Barony Mod Manager v0.2.0")
+        let app_name = Text::new(format!("Barony Mod Manager {}", VERSION))
             .size(30)
             .width(Length::FillPortion(3))
             .color(iced::Color::WHITE);
