@@ -19,9 +19,14 @@ jobs:
           default: true
           override: true
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: ./barony-mod-manager
+
       - name: Build
         run: |
-          sudo apt install libfreetype6-dev gperf
+          sudo apt install libxkbcommon-dev
           cd barony-mod-manager
           cargo build --release
           strip target/release/barony-mod-manager
@@ -54,6 +59,11 @@ jobs:
           cd barony-mod-manager
           cargo build --release
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: ./barony-mod-manager
+
       # - name: Release
       #   uses: softprops/action-gh-release@v1
       #   with:
@@ -75,6 +85,11 @@ jobs:
           target: x86_64-apple-darwin
           default: true
           override: true
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: ./barony-mod-manager
 
       - name: Build for mac
         run: |
