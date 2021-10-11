@@ -21,6 +21,7 @@ jobs:
 
       - name: Build
         run: |
+          sudo apt install libfreetype6-dev gperf
           cd barony-mod-manager
           cargo build --release
           strip target/release/barony-mod-manager
@@ -49,12 +50,14 @@ jobs:
           override: true
 
       - name: Build
-        run: cargo build --release
+        run: |
+          cd barony-mod-manager
+          cargo build --release
 
       # - name: Release
       #   uses: softprops/action-gh-release@v1
       #   with:
-      #     files: target/release/PROJECT_NAME.exe
+      #     files: target/release/barony-mod-manager.exe
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
