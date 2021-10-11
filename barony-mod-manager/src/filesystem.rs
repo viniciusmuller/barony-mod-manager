@@ -16,7 +16,7 @@ pub fn persist_settings(settings: SettingsPersistance) {
     }
 }
 
-pub fn barony_dir_valid(dir: &String) -> bool {
+pub fn barony_dir_valid(dir: &str) -> bool {
     let barony_path = Path::new(dir);
     let barony_mods_path = barony_path.join("mods/");
 
@@ -46,7 +46,7 @@ pub fn load_persisted_settings() -> SettingsPersistance {
     settings
 }
 
-pub fn is_mod_downloaded(barony_path: &String, mod_title: &String) -> bool {
+pub fn is_mod_downloaded(barony_path: &str, mod_title: &str) -> bool {
     if mod_title.is_empty() {
         return false;
     }
@@ -69,7 +69,7 @@ pub fn write_mod_to_disk(
     let cursor = std::io::Cursor::new(zip_bytes);
     let mut archive = zip::ZipArchive::new(cursor).unwrap();
 
-    Ok(for i in 0..archive.len() {
+    for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
         let outpath = match file.enclosed_name() {
             Some(path) => mod_folder.join(path.to_owned()),
@@ -97,13 +97,12 @@ pub fn write_mod_to_disk(
                 fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
             }
         }
-    })
+    }
+
+    Ok(())
 }
 
-pub fn delete_mod_from_disk(
-    barony_path: &String,
-    mod_title: &String,
-) -> Result<(), std::io::Error> {
+pub fn delete_mod_from_disk(barony_path: &str, mod_title: &str) -> Result<(), std::io::Error> {
     let foldername = clean_filename(mod_title);
     let mod_path = Path::new(barony_path).join("mods/").join(foldername);
     std::fs::remove_dir_all(mod_path)
@@ -111,7 +110,7 @@ pub fn delete_mod_from_disk(
 
 // This removes invalid filename characters that would make the program fail with
 // an OS error while trying to write the mod folder to disk.
-fn clean_filename(filename: &String) -> String {
+fn clean_filename(filename: &str) -> String {
     let re = regex::Regex::new(r"<>:/\|?*").unwrap();
     re.replace_all(filename, "").to_string()
 }

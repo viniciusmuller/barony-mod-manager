@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display},
-};
+use std::fmt::{self, Display};
 
 use crate::data::{BaronyMod, SteamWorkshopMod};
 
@@ -31,7 +28,7 @@ pub enum Message {
     NoOp,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PickableTag {
     Some(String),
     None,
@@ -53,31 +50,6 @@ impl Display for PickableTag {
 impl Default for PickableTag {
     fn default() -> PickableTag {
         PickableTag::None
-    }
-}
-
-impl PartialEq for PickableTag {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
-impl Eq for PickableTag {}
-
-impl Ord for PickableTag {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Greater)
-    }
-}
-
-impl PartialOrd for PickableTag {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(match self {
-            PickableTag::Some(tag) => match other {
-                PickableTag::Some(other_tag) => tag.cmp(&other_tag),
-                _ => Ordering::Less,
-            },
-            _ => Ordering::Less,
-        })
     }
 }
 

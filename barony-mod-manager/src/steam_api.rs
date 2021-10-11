@@ -8,7 +8,7 @@ use crate::{
 };
 
 static APP_IMAGES_SIZE: u32 = 180; // Pixels
-static DEFAULT_IMAGE: &'static [u8; 4921] = include_bytes!("../resources/img/no_image.png");
+static DEFAULT_IMAGE: &[u8; 4921] = include_bytes!("../resources/img/no_image.png");
 
 pub async fn get_barony_workshop_mods(
     client: Client,

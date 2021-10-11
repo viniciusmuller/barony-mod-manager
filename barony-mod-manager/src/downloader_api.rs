@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::Path, time::Duration};
+use std::time::Duration;
 
 use reqwest::Client;
 

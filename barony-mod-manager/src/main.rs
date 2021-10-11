@@ -215,9 +215,9 @@ impl Application for BaronyModManager {
                 self.error_message = None;
 
                 if let Some(mods) = &mut self.mods {
-                    mods.push(barony_mod.clone()) // self.mods.unwrap().push(barony_mod)
+                    mods.push(barony_mod) // self.mods.unwrap().push(barony_mod)
                 } else {
-                    self.mods = Some(vec![barony_mod.clone()])
+                    self.mods = Some(vec![barony_mod])
                 }
 
                 Command::none()
@@ -228,7 +228,7 @@ impl Application for BaronyModManager {
                     .mods
                     .as_mut()
                     .unwrap()
-                    .into_iter()
+                    .iter_mut()
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
@@ -257,7 +257,7 @@ impl Application for BaronyModManager {
                     .mods
                     .as_mut()
                     .unwrap()
-                    .into_iter()
+                    .iter_mut()
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
@@ -270,7 +270,7 @@ impl Application for BaronyModManager {
                 let mod_title = selected_mod.workshop.title.clone();
 
                 Command::perform(
-                    download_mod(self.http_client.clone(), uuid.clone()),
+                    download_mod(self.http_client.clone(), uuid),
                     move |result| match result {
                         Ok(zip_bytes) => {
                             filesystem::write_mod_to_disk(
@@ -290,7 +290,7 @@ impl Application for BaronyModManager {
                     .mods
                     .as_mut()
                     .unwrap()
-                    .into_iter()
+                    .iter_mut()
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
@@ -302,7 +302,7 @@ impl Application for BaronyModManager {
                     .mods
                     .as_mut()
                     .unwrap()
-                    .into_iter()
+                    .iter_mut()
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
@@ -503,7 +503,7 @@ impl Application for BaronyModManager {
 
                 // TODO: Don't filter mods every render
                 let download_filtered = if let Some(filter) = &self.selected_filter {
-                    mods.into_iter()
+                    mods.iter_mut()
                         .filter(|mod_| match filter {
                             Filter::Downloaded => {
                                 mod_.download_status == DownloadStatus::Downloaded
@@ -515,7 +515,7 @@ impl Application for BaronyModManager {
                         })
                         .collect::<Vec<_>>()
                 } else {
-                    mods.into_iter().collect::<Vec<_>>()
+                    mods.iter_mut().collect::<Vec<_>>()
                 };
 
                 let tags_filtered = if let Some(tag) = &self.selected_tag {
@@ -538,7 +538,7 @@ impl Application for BaronyModManager {
 
                 // Filter by user search
                 let mods_filtered = if !self.query.is_empty() {
-                    let query = self.query.to_lowercase().clone();
+                    let query = self.query.to_lowercase();
                     tags_filtered
                         .into_iter()
                         .filter(|mod_| {
