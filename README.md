@@ -3,7 +3,7 @@
   <h1 align="center">Barony Mod Manager</h1>
 </p>
 
-![Screenshot of the mod manager](barony-mod-manager/resources/img/mod_manager_screenshot.png)
+![Screenshot of the mod manager](images/mod_manager_screenshot.png)
 
 # Table of contents
 
