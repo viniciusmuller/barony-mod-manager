@@ -23,7 +23,7 @@ use iced::{
 use iced_native::Event;
 use reqwest::Client;
 
-static VERSION: &str = "v0.3.0";
+static VERSION: &str = "v0.3.1";
 
 fn main() -> iced::Result {
     let icon = build_app_logo().unwrap();
