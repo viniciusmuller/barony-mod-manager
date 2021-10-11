@@ -55,15 +55,15 @@ jobs:
           default: true
           override: true
 
-      - name: Build
-        run: |
-          cd barony-mod-manager
-          cargo build --release
-
       - name: Cache
         uses: Swatinem/rust-cache@v1
         with:
           working-directory: ./barony-mod-manager
+
+      - name: Build
+        run: |
+          cd barony-mod-manager
+          cargo build --release
 
       - name: Release
         uses: softprops/action-gh-release@v1
