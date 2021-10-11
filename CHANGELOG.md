@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 - Fix bug where sort order was not changing when user selected a different sort strategy.
+- The app no longer opens an empty console when starting on Windows.
 
 ## Changes 
 - The app version is now displayed in the window title and the header, along with its name.

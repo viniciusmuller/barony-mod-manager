@@ -3,9 +3,9 @@ use std::io;
 
 fn main() -> io::Result<()> {
     #[cfg(windows)] {
+        // Add app logo to binaries built on windows.
         WindowsResource::new()
-            // This path can be absolute, or relative to your crate root.
-            .set_icon("resources/icons/icon.ico")
+            .set_icon("resources/icons/logo.ico")
             .compile()?;
     }
     Ok(())

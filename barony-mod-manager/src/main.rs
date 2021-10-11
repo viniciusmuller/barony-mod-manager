@@ -1,3 +1,6 @@
+// Don't show the console when starting the app on Windows
+#![windows_subsystem = "windows"]
+
 use std::{collections::HashSet, time::Duration, vec};
 
 use barony_mod_manager::{
