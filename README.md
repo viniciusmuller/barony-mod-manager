@@ -18,20 +18,20 @@
 # Intro
 This project is a work-in-progress cross-platform mod manager for the game
 [Barony](https://store.steampowered.com/app/371970/Barony/). It aims to provide
-a platform-agnostic interface to manage all the barony mods available through its
-[Steam Workshop](https://steamcommunity.com/workshop/about/?appid=371970). So
+a platform-agnostic interface to manage all the barony mods available in its
+[Steam Workshop page](https://steamcommunity.com/workshop/about/?appid=371970). So
 you can easily download Barony mods, whether you are using a [custom Barony build](https://github.com/TurningWheel/Barony)
 or the Steam, Epic Games, or GOG version of the game.
 
 # Getting Started
 
 ## Building the Project
-Currently there are not built releases, so if one want to build the project he
+Currently there are no built releases, so if one wants to build the project he
 needs:
 - On Windows, download the project and the rust compiler + cargo, then just
     running `cargo build --release` should build the project.
 - On Linux using Nix, just clone the project and enter the development
-    environment with `nix develop`. There are not packages defined inside the
+    environment with `nix develop`. There are no packages defined inside the
     flake yet.
 
 ## Using the Mod Manager
@@ -40,7 +40,7 @@ you are looking for and install/uninstall mods using the respective buttons in
 their cards. Have a great time modding Barony!
 
 ## Activating Mods
-Since the game does an awesome job at loading/unloading mods at runtime, I don't
+Since the game does a great job at loading/unloading mods at runtime, I don't
 think trying to mimic this functionality here is a great deal. So in order to
 activate or activate the mods you've downloaded:
 - Inside Barony, click `Custom Content`
