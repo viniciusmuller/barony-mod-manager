@@ -583,9 +583,9 @@ impl Application for BaronyModManager {
                         // TODO: Create function for this
                         let created_at = Text::new(format!(
                             "Created: {}/{}/{}",
-                            mod_.workshop.time_updated.day(),
-                            mod_.workshop.time_updated.month(),
-                            mod_.workshop.time_updated.year()
+                            mod_.workshop.time_created.day(),
+                            mod_.workshop.time_created.month(),
+                            mod_.workshop.time_created.year()
                         ))
                         .color(Color::WHITE);
 

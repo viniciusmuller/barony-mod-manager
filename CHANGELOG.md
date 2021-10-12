@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Fix bug where mods creation date were always the same as their last update date.
+
 ## [0.3.2] - 2021-10-11
 
 ### Fixed
