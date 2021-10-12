@@ -33,9 +33,9 @@ The latest project release can be found [here](https://github.com/arcticlimer/ba
 - For MacOS: `barony-mod-manager_darwin`
 
 ## Using the Mod Manager
-After building you can use the search input and the filters to match exactly what
-you are looking for and install/uninstall mods using the respective buttons in
-their cards. Have a great time modding Barony!
+You can use the search input and the filters to match exactly what you are
+looking for and download/remove mods using the respective buttons in their
+cards. Have a great time modding Barony!
 
 ## Activating Mods
 Since the game does a great job at loading/unloading mods at runtime, I don't
