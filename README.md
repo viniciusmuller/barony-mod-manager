@@ -27,7 +27,7 @@ or the Steam, Epic Games, or GOG version of the game.
 # Getting Started
 
 ## Downloading
-The latest project release can be found [here](https://github.com/arcticlimer/barony-mod-manager/releases/). Scroll to the bottom and select the appropriate version for your system.
+The latest project release can be found [here](https://github.com/arcticlimer/barony-mod-manager/releases/). Go at the release and select the appropriate version for your system.
 - For Windows: `barony-mod-manager.exe`
 - For GNU/Linux: `barony-mod-manager_amd64`
 - For MacOS: `barony-mod-manager_darwin`
