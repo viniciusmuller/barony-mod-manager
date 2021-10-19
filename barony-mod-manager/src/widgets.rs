@@ -17,7 +17,7 @@ pub enum Message {
 
     // Application inner workings' events
     ModsFetched(Vec<SteamWorkshopMod>),
-    ModBuilt(BaronyMod),
+    ModBuilt(Box<BaronyMod>),
     DownloadMod(String),
     PreparingModDownload(String, String),
     ModDownloadReady(String, String),

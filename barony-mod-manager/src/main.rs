@@ -213,7 +213,7 @@ impl Application for BaronyModManager {
                             self.barony_dir_str.clone(),
                             mod_,
                         ),
-                        Message::ModBuilt,
+                        |m| Message::ModBuilt(Box::new(m)),
                     )
                 }))
             }
@@ -222,9 +222,9 @@ impl Application for BaronyModManager {
                 self.error_message = None;
 
                 if let Some(mods) = &mut self.mods {
-                    mods.push(barony_mod) // self.mods.unwrap().push(barony_mod)
+                    mods.push(*barony_mod) // self.mods.unwrap().push(barony_mod)
                 } else {
-                    self.mods = Some(vec![barony_mod])
+                    self.mods = Some(vec![*barony_mod])
                 }
 
                 Command::none()
