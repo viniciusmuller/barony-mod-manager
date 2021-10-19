@@ -111,6 +111,5 @@ pub fn delete_mod_from_disk(barony_path: &str, mod_title: &str) -> Result<(), st
 // This removes invalid filename characters that would make the program fail with
 // an OS error while trying to write the mod folder to disk.
 fn clean_filename(filename: &str) -> String {
-    let re = regex::Regex::new(r"<>:/\|?*").unwrap();
-    re.replace_all(filename, "").to_string()
+    filename.replace(&['<', '>', ':', '/', '\\', '|', '?', '*'][..], "")
 }

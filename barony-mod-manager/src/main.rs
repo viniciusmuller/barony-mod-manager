@@ -244,7 +244,7 @@ impl Application for BaronyModManager {
                     queue_download(self.http_client.clone(), id.parse::<u32>().unwrap()),
                     move |result| match result {
                         Ok(uuid) => Message::PreparingModDownload(id.clone(), uuid),
-                        _ => todo!(),
+                        Err(err) => Message::ModDownloadError(id.clone(), err.to_string()),
                     },
                 )
             }
@@ -253,10 +253,7 @@ impl Application for BaronyModManager {
                 move |result| match result {
                     Ok(true) => Message::ModDownloadReady(id.clone(), uuid.clone()),
                     Ok(false) => Message::PreparingModDownload(id.clone(), uuid.clone()),
-                    Err(err) => {
-                        dbg!(err);
-                        todo!()
-                    }
+                    Err(err) => Message::ModDownloadError(id.clone(), err.to_string()),
                 },
             ),
             Message::ModDownloadReady(id, uuid) => {
@@ -267,6 +264,10 @@ impl Application for BaronyModManager {
                     .iter_mut()
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
+
+                if let DownloadStatus::ErrorOccurred(_) = selected_mod.download_status {
+                    return Command::none();
+                }
 
                 selected_mod.download_status = DownloadStatus::Downloading;
 
@@ -280,17 +281,31 @@ impl Application for BaronyModManager {
                     download_mod(self.http_client.clone(), uuid),
                     move |result| match result {
                         Ok(zip_bytes) => {
-                            filesystem::write_mod_to_disk(
+                            match filesystem::write_mod_to_disk(
                                 barony_dir.clone(),
                                 mod_title.clone(),
                                 zip_bytes,
-                            )
-                            .unwrap();
-                            Message::ModDownloaded(id.clone())
+                            ) {
+                                Ok(_) => Message::ModDownloaded(id.clone()),
+                                Err(err) => Message::ModDownloadError(id.clone(), err.to_string()),
+                            }
                         }
-                        _ => todo!(),
+                        Err(err) => Message::ModDownloadError(id.clone(), err.to_string()),
                     },
                 )
+            }
+            Message::ModDownloadError(id, msg) => {
+                let selected_mod = self
+                    .mods
+                    .as_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|_mod| _mod.workshop.id == id)
+                    .unwrap();
+
+                dbg!(&id, &msg);
+                selected_mod.download_status = DownloadStatus::ErrorOccurred(msg);
+                Command::none()
             }
             Message::ModDownloaded(id) => {
                 let selected_mod = self
@@ -314,13 +329,17 @@ impl Application for BaronyModManager {
                     .unwrap();
 
                 // TODO: treat error
-                filesystem::delete_mod_from_disk(
+                match filesystem::delete_mod_from_disk(
                     &self.barony_dir_str,
                     &selected_mod.workshop.title,
-                )
-                .unwrap();
+                ) {
+                    Ok(_) => selected_mod.download_status = DownloadStatus::NotDownloaded,
+                    Err(err) => {
+                        selected_mod.download_status =
+                            DownloadStatus::ErrorOccurred(err.to_string())
+                    }
+                }
 
-                selected_mod.download_status = DownloadStatus::NotDownloaded;
                 Command::none()
             }
             Message::ErrorHappened(msg) => {
@@ -507,7 +526,7 @@ impl Application for BaronyModManager {
                     .width(Length::Fill)
                     .height(Length::Fill);
 
-                // TODO: Don't filter mods every render
+                // TODO: Don't filter mods every render (0.3.4 planned)
                 let download_filtered = if let Some(filter) = &self.selected_filter {
                     mods.iter_mut()
                         .filter(|mod_| match filter {
@@ -599,7 +618,7 @@ impl Application for BaronyModManager {
 
                         let download_or_remove_button = match mod_.download_status {
                             // An error occured or the mod is not downloaded, can try again
-                            DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred => {
+                            DownloadStatus::NotDownloaded | DownloadStatus::ErrorOccurred(_) => {
                                 Button::new(&mut mod_.download_button, Text::new("Download"))
                                     .style(DownloadModButton)
                                     .on_press(Message::DownloadMod(mod_.workshop.id.clone()))

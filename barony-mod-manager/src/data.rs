@@ -21,7 +21,7 @@ pub enum DownloadStatus {
     NotDownloaded,
     Preparing,
     Downloading,
-    ErrorOccurred,
+    ErrorOccurred(String),
 }
 
 impl Display for DownloadStatus {
@@ -30,11 +30,11 @@ impl Display for DownloadStatus {
             f,
             "{}",
             match self {
-                DownloadStatus::Downloaded => "Downloaded",
-                DownloadStatus::NotDownloaded => "Not downloaded",
-                DownloadStatus::Preparing => "Preparing download...",
-                DownloadStatus::Downloading => "Downloading...",
-                DownloadStatus::ErrorOccurred => "Error occurred. Could not download the mod.",
+                DownloadStatus::Downloaded => "Downloaded".to_string(),
+                DownloadStatus::NotDownloaded => "Not downloaded".to_string(),
+                DownloadStatus::Preparing => "Preparing download...".to_string(),
+                DownloadStatus::Downloading => "Downloading...".to_string(),
+                DownloadStatus::ErrorOccurred(err) => format!("Error occurred: {}.", err),
             }
         )
     }

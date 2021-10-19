@@ -22,6 +22,7 @@ pub enum Message {
     PreparingModDownload(String, String),
     ModDownloadReady(String, String),
     ModDownloaded(String),
+    ModDownloadError(String, String), // mod id, error message
     RemoveMod(String),
 }
 

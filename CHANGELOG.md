@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.3.3] - 2021-10-19
+
 ### Fixed
 - Fix bug where mods creation date were always the same as their last update date.
+
+### Changes
+- Improve user error messages when downloading/removing mods fail.
 
 ## [0.3.2] - 2021-10-11
 
