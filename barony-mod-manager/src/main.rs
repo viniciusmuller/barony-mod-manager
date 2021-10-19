@@ -265,10 +265,6 @@ impl Application for BaronyModManager {
                     .find(|_mod| _mod.workshop.id == id)
                     .unwrap();
 
-                if let DownloadStatus::ErrorOccurred(_) = selected_mod.download_status {
-                    return Command::none();
-                }
-
                 selected_mod.download_status = DownloadStatus::Downloading;
 
                 // TODO: Maybe try to use less clones here, but since it's a function
