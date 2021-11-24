@@ -1,31 +1,31 @@
-name: Update Barony mod list
-on:
-  schedule:
-  - cron: "0 */12 * * *" # Every 12 hours
+# name: Update Barony mod list
+# on:
+#   schedule:
+#   - crong "0 */12 * * *" # Every 12 hours
 
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
+# jobs:
+#   update:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v2
+#       - name: Set up Python 3.9
+#         uses: actions/setup-python@v2
+#         with:
+#           python-version: 3.9
 
-      - name: Install Python mods update script dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install aiohttp
+#       - name: Install Python mods update script dependencies
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install aiohttp
 
-      - name: Update mods data
-        run: python data/update_mods.py
-        env:
-          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+#       - name: Update mods data
+#         run: python data/update_mods.py
+#         env:
+#           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
 
-      - name: Commit change
-        run: |
-          git config --global user.name 'Vinícius Müller'
-          git config --global user.email 'arcticlimer@users.noreply.github.com'
-          git commit -am "Automatic mods update"
-          git push
+#       - name: Commit change
+#         run: |
+#           git config --global user.name 'Vinícius Müller'
+#           git config --global user.email 'arcticlimer@users.noreply.github.com'
+#           git commit -am "Automatic mods update"
+#           git push
